@@ -1,4 +1,4 @@
-import { App } from 'octokit';
+import { App, Octokit } from 'octokit';
 
 export interface GithubAppConfig {
   appId?: string;
@@ -87,5 +87,37 @@ export class GithubAppAdapter {
     const app = this.getApp();
     const { authentication } = await app.oauth.createToken({ code });
     return { token: authentication.token };
+  }
+
+  /** OAuth 토큰으로 GitHub 사용자 프로필 조회 */
+  async getOAuthUser(token: string): Promise<{
+    githubId: number;
+    login: string;
+    name: string;
+    email: string | null;
+    avatarUrl: string | null;
+  }> {
+    const octokit = new Octokit({ auth: token });
+    const { data } = await octokit.rest.users.getAuthenticated();
+    return {
+      githubId: data.id,
+      login: data.login,
+      name: data.name ?? data.login,
+      email: data.email ?? null,
+      avatarUrl: data.avatar_url ?? null,
+    };
+  }
+
+  /** 사용자 토큰으로 접근 가능한 App 설치 목록 */
+  async listUserInstallations(token: string): Promise<{ id: number; accountLogin: string }[]> {
+    const octokit = new Octokit({ auth: token });
+    const { data } = await octokit.rest.apps.listInstallationsForAuthenticatedUser({
+      per_page: 100,
+    });
+    return data.installations.map((inst) => ({
+      id: inst.id,
+      accountLogin:
+        inst.account && 'login' in inst.account ? (inst.account.login ?? '') : '',
+    }));
   }
 }
