@@ -1,0 +1,42 @@
+{
+  "name": "vibetrack",
+  "private": true,
+  "version": "0.1.0",
+  "description": "VibeTrack — AI 코딩 에이전트와 GitHub의 작업 흔적을 연결하는 프로젝트 기억 서비스",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @vibetrack/web build",
+    "start": "tsx apps/api/src/index.ts",
+    "worker": "tsx apps/api/src/worker.ts",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "db:generate": "pnpm --filter @vibetrack/tracker-core db:generate",
+    "db:migrate": "pnpm --filter @vibetrack/tracker-core db:migrate",
+    "db:migrate:dev": "pnpm --filter @vibetrack/tracker-core db:migrate:dev",
+    "db:seed": "pnpm --filter @vibetrack/api db:seed",
+    "postinstall": "pnpm db:generate"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.4",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}

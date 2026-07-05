@@ -1,0 +1,25 @@
+{
+  "name": "@vibetrack/github",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "true"
+  },
+  "dependencies": {
+    "@vibetrack/shared": "workspace:*",
+    "@vibetrack/tracker-core": "workspace:*",
+    "octokit": "^5.0.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.6"
+  }
+}

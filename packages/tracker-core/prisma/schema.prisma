@@ -1,0 +1,498 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 사용자 / 프로젝트 / 연결 ----------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  name      String
+  githubId  BigInt?  @unique
+  githubLogin String?
+  avatarUrl String?
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  projects            Project[]
+  githubInstallations GithubInstallation[]
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  goal      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository       Repository?
+  mcpTokens        McpToken[]
+  featureNodes     FeatureNode[]
+  featureRelations FeatureRelation[]
+  featureEvidence  FeatureEvidence[]
+  workUpdates      WorkUpdate[]
+  changeProposals  ChangeProposal[]
+  treeVersions     FeatureTreeVersion[]
+  githubEvents     GithubEvent[]
+  verificationRuns VerificationRun[]
+  inboxItems       InboxItem[]
+  openQuestions    OpenQuestion[]
+  auditLogs        AuditLog[]
+
+  @@index([userId])
+  @@map("projects")
+}
+
+model Repository {
+  id                   String   @id @default(cuid())
+  projectId            String   @unique
+  provider             String   @default("github")
+  owner                String
+  name                 String
+  fullName             String
+  defaultBranch        String   @default("main")
+  githubInstallationId String?
+  connectedAt          DateTime @default(now())
+
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  installation GithubInstallation? @relation(fields: [githubInstallationId], references: [id])
+
+  @@map("repositories")
+}
+
+model GithubInstallation {
+  id             String   @id @default(cuid())
+  userId         String
+  installationId BigInt   @unique
+  accountLogin   String
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositories Repository[]
+
+  @@map("github_installations")
+}
+
+model McpToken {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String    @default("default")
+  tokenHash   String    @unique
+  tokenPrefix String
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("mcp_tokens")
+}
+
+// ---------- 기능 트리 ----------
+
+enum Lifecycle {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum ImplementationStatus {
+  NOT_STARTED
+  PARTIAL
+  IMPLEMENTED
+  CHANGED
+}
+
+enum VerificationStatus {
+  UNKNOWN
+  NEEDS_VERIFICATION
+  PASSED
+  FAILED
+  MANUAL_VERIFIED
+}
+
+model FeatureNode {
+  id                   String               @id @default(cuid())
+  projectId            String
+  parentId             String?
+  name                 String
+  description          String?
+  isCore               Boolean              @default(false)
+  orderIndex           Int                  @default(0)
+  lifecycle            Lifecycle            @default(DRAFT)
+  implementationStatus ImplementationStatus @default(NOT_STARTED)
+  verificationStatus   VerificationStatus   @default(UNKNOWN)
+  lastChangedAt        DateTime?
+  retiredAt            DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent             FeatureNode?        @relation("FeatureTree", fields: [parentId], references: [id])
+  children           FeatureNode[]       @relation("FeatureTree")
+  evidence           FeatureEvidence[]
+  workUpdateFeatures WorkUpdateFeature[]
+  relationsFrom      FeatureRelation[]   @relation("RelationFrom")
+  relationsTo        FeatureRelation[]   @relation("RelationTo")
+  verificationRuns   VerificationRun[]
+  inboxItems         InboxItem[]
+  openQuestions      OpenQuestion[]
+
+  @@index([projectId, lifecycle])
+  @@index([parentId])
+  @@map("feature_nodes")
+}
+
+enum RelationType {
+  MERGED_INTO
+  SPLIT_FROM
+  REPLACED_BY
+}
+
+model FeatureRelation {
+  id            String       @id @default(cuid())
+  projectId     String
+  fromFeatureId String
+  toFeatureId   String
+  type          RelationType
+  proposalId    String?
+  createdAt     DateTime     @default(now())
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromFeature FeatureNode @relation("RelationFrom", fields: [fromFeatureId], references: [id], onDelete: Cascade)
+  toFeature   FeatureNode @relation("RelationTo", fields: [toFeatureId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("feature_relations")
+}
+
+enum EvidenceType {
+  FILE
+  ROUTE
+  API_ENDPOINT
+  TEST
+  COMMIT
+  PULL_REQUEST
+  DOCUMENT
+  WORK_UPDATE
+}
+
+model FeatureEvidence {
+  id            String       @id @default(cuid())
+  projectId     String
+  featureNodeId String
+  type          EvidenceType
+  // 파일 경로 / 라우트 / 엔드포인트 등. 파일 경로는 기능이 아니라 증거로만 존재한다.
+  path          String?
+  // 커밋 SHA, PR 번호 등 외부 참조
+  ref           String?
+  title         String?
+  url           String?
+  missing       Boolean      @default(false)
+  workUpdateId  String?
+  githubEventId String?
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  featureNode FeatureNode  @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+  workUpdate  WorkUpdate?  @relation(fields: [workUpdateId], references: [id])
+  githubEvent GithubEvent? @relation(fields: [githubEventId], references: [id])
+
+  @@index([projectId, type, path])
+  @@index([featureNodeId])
+  @@map("feature_evidence")
+}
+
+// ---------- 작업 기록 ----------
+
+enum WorkUpdateSource {
+  MCP
+  GITHUB
+  USER
+}
+
+model WorkUpdate {
+  id           String           @id @default(cuid())
+  projectId    String
+  source       WorkUpdateSource @default(MCP)
+  summary      String
+  changedFiles Json             @default("[]")
+  gitHeadSha   String?
+  testsStatus  String?
+  testsPassed  Int?
+  testsFailed  Int?
+  testsSummary String?
+  manualCheck  Boolean          @default(false)
+  nextTask     String?
+  createdAt    DateTime         @default(now())
+
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  features         WorkUpdateFeature[]
+  evidence         FeatureEvidence[]
+  verificationRuns VerificationRun[]
+  openQuestions    OpenQuestion[]
+  inboxItems       InboxItem[]
+
+  @@index([projectId, createdAt])
+  @@index([gitHeadSha])
+  @@map("work_updates")
+}
+
+model WorkUpdateFeature {
+  id            String @id @default(cuid())
+  workUpdateId  String
+  featureNodeId String
+
+  workUpdate  WorkUpdate  @relation(fields: [workUpdateId], references: [id], onDelete: Cascade)
+  featureNode FeatureNode @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([workUpdateId, featureNodeId])
+  @@index([featureNodeId])
+  @@map("work_update_features")
+}
+
+// ---------- 구조 변경 ----------
+
+enum ProposalType {
+  CREATE
+  RETIRE
+  RENAME
+  MOVE
+  MERGE
+  SPLIT
+  REPLACE
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ChangeProposal {
+  id                   String           @id @default(cuid())
+  projectId            String
+  type                 ProposalType
+  status               ProposalStatus   @default(PENDING)
+  title                String
+  reason               String
+  targetFeatureIds     String[]         @default([])
+  payload              Json
+  evidence             Json?
+  source               WorkUpdateSource @default(MCP)
+  createdAt            DateTime         @default(now())
+  decidedAt            DateTime?
+  decidedByUserId      String?
+  appliedTreeVersionId String?
+
+  project      Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  treeVersions FeatureTreeVersion[]
+  inboxItems   InboxItem[]
+
+  @@index([projectId, status])
+  @@map("change_proposals")
+}
+
+enum TreeVersionCause {
+  BOOTSTRAP_APPROVED
+  PROPOSAL_APPLIED
+  MANUAL_EDIT
+}
+
+model FeatureTreeVersion {
+  id               String           @id @default(cuid())
+  projectId        String
+  version          Int
+  cause            TreeVersionCause
+  snapshot         Json
+  changeProposalId String?
+  createdByUserId  String?
+  createdAt        DateTime         @default(now())
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeProposal ChangeProposal? @relation(fields: [changeProposalId], references: [id])
+
+  @@unique([projectId, version])
+  @@map("feature_tree_versions")
+}
+
+// ---------- GitHub / 검증 / 작업 큐 ----------
+
+enum GithubEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  SKIPPED
+}
+
+model GithubEvent {
+  id           String            @id @default(cuid())
+  projectId    String?
+  deliveryId   String            @unique
+  eventType    String
+  action       String?
+  payload      Json
+  status       GithubEventStatus @default(PENDING)
+  receivedAt   DateTime          @default(now())
+  processedAt  DateTime?
+  errorMessage String?
+
+  project  Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence FeatureEvidence[]
+  inboxItems InboxItem[]
+
+  @@index([projectId, receivedAt])
+  @@map("github_events")
+}
+
+enum VerificationSource {
+  CI
+  MCP
+  MANUAL
+}
+
+enum VerificationOutcome {
+  PASSED
+  FAILED
+}
+
+model VerificationRun {
+  id            String              @id @default(cuid())
+  projectId     String
+  featureNodeId String?
+  workUpdateId  String?
+  commitSha     String?
+  source        VerificationSource
+  status        VerificationOutcome
+  name          String?
+  details       Json?
+  createdAt     DateTime            @default(now())
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  featureNode FeatureNode? @relation(fields: [featureNodeId], references: [id], onDelete: SetNull)
+  workUpdate  WorkUpdate?  @relation(fields: [workUpdateId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([commitSha])
+  @@map("verification_runs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAt       DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, runAt])
+  @@map("jobs")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  projectId  String?
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  detail     Json?
+  createdAt  DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------- Inbox / 미해결 질문 ----------
+
+enum InboxItemType {
+  FEATURE_MAP_REVIEW
+  STRUCTURE_PROPOSAL
+  UNTRACKED_CHANGE
+  EVIDENCE_MISMATCH
+  TEST_FAILURE
+}
+
+enum InboxItemStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model InboxItem {
+  id               String          @id @default(cuid())
+  projectId        String
+  type             InboxItemType
+  status           InboxItemStatus @default(OPEN)
+  title            String
+  detail           Json?
+  changeProposalId String?
+  githubEventId    String?
+  featureNodeId    String?
+  workUpdateId     String?
+  createdAt        DateTime        @default(now())
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNote   String?
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeProposal ChangeProposal? @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
+  githubEvent    GithubEvent?    @relation(fields: [githubEventId], references: [id], onDelete: Cascade)
+  featureNode    FeatureNode?    @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+  workUpdate     WorkUpdate?     @relation(fields: [workUpdateId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, createdAt])
+  @@map("inbox_items")
+}
+
+enum QuestionStatus {
+  OPEN
+  RESOLVED
+}
+
+model OpenQuestion {
+  id            String         @id @default(cuid())
+  projectId     String
+  featureNodeId String?
+  workUpdateId  String?
+  question      String
+  status        QuestionStatus @default(OPEN)
+  createdAt     DateTime       @default(now())
+  resolvedAt    DateTime?
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  featureNode FeatureNode? @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+  workUpdate  WorkUpdate?  @relation(fields: [workUpdateId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@map("open_questions")
+}
