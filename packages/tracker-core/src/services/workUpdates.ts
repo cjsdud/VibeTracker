@@ -29,7 +29,11 @@ export async function recordWorkUpdate(
     const requested = [...new Set(input.featureIds ?? [])];
     const features: FeatureNode[] = requested.length
       ? await tx.featureNode.findMany({
-          where: { id: { in: requested }, projectId: input.projectId, lifecycle: { not: 'RETIRED' } },
+          where: {
+            id: { in: requested },
+            projectId: input.projectId,
+            lifecycle: { not: 'RETIRED' },
+          },
         })
       : [];
     const unmatchedIds = requested.filter((id) => !features.some((f) => f.id === id));

@@ -77,11 +77,11 @@ AI 코딩 에이전트로 프로젝트를 만드는 개인 개발자는 다음 �
 
 기능 하나는 단일 퍼센트가 아니라 세 가지 축으로 관리한다.
 
-| 축 | 값 |
-| --- | --- |
-| 생명주기 (lifecycle) | DRAFT(초안) / ACTIVE(활성) / RETIRED(종료됨) |
-| 구현 상태 (implementationStatus) | NOT_STARTED(미구현) / PARTIAL(일부 구현) / IMPLEMENTED(구현됨) / CHANGED(최근 변경됨) |
-| 검증 상태 (verificationStatus) | UNKNOWN(확인 없음) / NEEDS_VERIFICATION(검증 필요) / PASSED(테스트 통과) / FAILED(테스트 실패) / MANUAL_VERIFIED(실제 사용 확인) |
+| 축                               | 값                                                                                                                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 생명주기 (lifecycle)             | DRAFT(초안) / ACTIVE(활성) / RETIRED(종료됨)                                                                                     |
+| 구현 상태 (implementationStatus) | NOT_STARTED(미구현) / PARTIAL(일부 구현) / IMPLEMENTED(구현됨) / CHANGED(최근 변경됨)                                            |
+| 검증 상태 (verificationStatus)   | UNKNOWN(확인 없음) / NEEDS_VERIFICATION(검증 필요) / PASSED(테스트 통과) / FAILED(테스트 실패) / MANUAL_VERIFIED(실제 사용 확인) |
 
 사용자에게는 조합된 간단한 상태 문구로 보여준다.
 

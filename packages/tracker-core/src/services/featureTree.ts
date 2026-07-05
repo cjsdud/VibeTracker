@@ -102,7 +102,11 @@ export async function bootstrapProjectMap(
     await tx.featureNode.deleteMany({ where: { projectId: input.projectId, lifecycle: 'DRAFT' } });
     await tx.inboxItem.updateMany({
       where: { projectId: input.projectId, type: 'FEATURE_MAP_REVIEW', status: 'OPEN' },
-      data: { status: 'DISMISSED', resolvedAt: new Date(), resolutionNote: '재부트스트랩으로 대체됨' },
+      data: {
+        status: 'DISMISSED',
+        resolvedAt: new Date(),
+        resolutionNote: '재부트스트랩으로 대체됨',
+      },
     });
 
     if (input.projectGoal) {
@@ -139,7 +143,10 @@ export async function bootstrapProjectMap(
 
       const ev = node.evidence;
       if (ev) {
-        const entries: { type: 'FILE' | 'ROUTE' | 'API_ENDPOINT' | 'TEST' | 'DOCUMENT'; values: string[] }[] = [
+        const entries: {
+          type: 'FILE' | 'ROUTE' | 'API_ENDPOINT' | 'TEST' | 'DOCUMENT';
+          values: string[];
+        }[] = [
           { type: 'FILE', values: ev.files ?? [] },
           { type: 'ROUTE', values: ev.routes ?? [] },
           { type: 'API_ENDPOINT', values: ev.apiEndpoints ?? [] },
@@ -216,7 +223,10 @@ export async function approveInitialFeatureMap(
       action: 'feature_map.approved',
       detail: { approvedCount: draftCount, version: version.version },
     });
-    return { tree: buildFeatureTree(await getFeatureNodes(tx, params.projectId)), version: version.version };
+    return {
+      tree: buildFeatureTree(await getFeatureNodes(tx, params.projectId)),
+      version: version.version,
+    };
   });
 }
 
@@ -266,14 +276,9 @@ export async function createFeatureManual(
   });
 }
 
-const manualImplementation = ['NOT_STARTED', 'PARTIAL', 'IMPLEMENTED', 'CHANGED'] as const;
-const manualVerification = [
-  'UNKNOWN',
-  'NEEDS_VERIFICATION',
-  'PASSED',
-  'FAILED',
-  'MANUAL_VERIFIED',
-] as const;
+type ManualImplementation = 'NOT_STARTED' | 'PARTIAL' | 'IMPLEMENTED' | 'CHANGED';
+type ManualVerification =
+  'UNKNOWN' | 'NEEDS_VERIFICATION' | 'PASSED' | 'FAILED' | 'MANUAL_VERIFIED';
 
 /** 사용자가 웹에서 기능 메타데이터/상태를 수동으로 고치는 경우 */
 export async function updateFeatureManual(
@@ -285,8 +290,8 @@ export async function updateFeatureManual(
     name?: string;
     description?: string | null;
     isCore?: boolean;
-    implementationStatus?: (typeof manualImplementation)[number];
-    verificationStatus?: (typeof manualVerification)[number];
+    implementationStatus?: ManualImplementation;
+    verificationStatus?: ManualVerification;
     retire?: boolean;
   },
 ): Promise<FeatureNode> {

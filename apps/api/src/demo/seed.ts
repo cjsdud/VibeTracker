@@ -1,9 +1,4 @@
-import {
-  hashToken,
-  type PrismaClient,
-  type Project,
-  type User,
-} from '@vibetrack/tracker-core';
+import { hashToken, type PrismaClient, type Project, type User } from '@vibetrack/tracker-core';
 
 export const DEMO_USER_EMAIL = 'demo@vibetrack.local';
 /** DEMO_MODE 전용 고정 토큰. 프로덕션에서는 seed되지 않는다. */

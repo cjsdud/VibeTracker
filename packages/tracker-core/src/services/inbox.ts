@@ -103,10 +103,7 @@ export async function linkUntrackedChangeToFeature(
         workUpdateId: item.workUpdateId,
       });
     }
-    const shas = [
-      ...(detail.commitShas ?? []),
-      ...(detail.gitHeadSha ? [detail.gitHeadSha] : []),
-    ];
+    const shas = [...(detail.commitShas ?? []), ...(detail.gitHeadSha ? [detail.gitHeadSha] : [])];
     for (const sha of shas) {
       await upsertEvidence(tx, {
         projectId: params.projectId,

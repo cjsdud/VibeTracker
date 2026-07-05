@@ -157,13 +157,21 @@ export async function integrationRoutes(
     if (env.DEMO_MODE && !github.isConfigured()) {
       return {
         repos: [
-          { installationId: null, fullName: 'demo/review-insight', owner: 'demo', name: 'review-insight', defaultBranch: 'main' },
+          {
+            installationId: null,
+            fullName: 'demo/review-insight',
+            owner: 'demo',
+            name: 'review-insight',
+            defaultBranch: 'main',
+          },
         ],
         demo: true,
       };
     }
     if (!github.isConfigured()) {
-      throw new ValidationError('GitHub App이 설정되지 않았습니다. docs/github-app-setup.md를 참조하세요.');
+      throw new ValidationError(
+        'GitHub App이 설정되지 않았습니다. docs/github-app-setup.md를 참조하세요.',
+      );
     }
     const installations = await prisma.githubInstallation.findMany({
       where: { userId: user.id },

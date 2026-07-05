@@ -41,7 +41,10 @@ interface CheckPayload {
  * GithubEvent 한 건을 처리한다. Job worker에서 호출된다.
  * 실패 시 throw → Job 재시도 (지수 backoff).
  */
-export async function processGithubEvent(prisma: PrismaClient, githubEventId: string): Promise<void> {
+export async function processGithubEvent(
+  prisma: PrismaClient,
+  githubEventId: string,
+): Promise<void> {
   const event = await prisma.githubEvent.findUnique({ where: { id: githubEventId } });
   if (!event) return;
   if (event.status === 'PROCESSED' || event.status === 'SKIPPED') return; // 중복 처리 방지
@@ -89,7 +92,11 @@ export async function processGithubEvent(prisma: PrismaClient, githubEventId: st
   }
 }
 
-async function processPush(prisma: PrismaClient, event: GithubEvent, projectId: string): Promise<void> {
+async function processPush(
+  prisma: PrismaClient,
+  event: GithubEvent,
+  projectId: string,
+): Promise<void> {
   const payload = event.payload as PushPayload;
   const commits = payload.commits ?? [];
   if (commits.length === 0) return;
@@ -203,7 +210,11 @@ async function processPush(prisma: PrismaClient, event: GithubEvent, projectId: 
     const workUpdates = await prisma.workUpdate.findMany({
       where: { projectId, gitHeadSha: commit.id, source: 'MCP' },
     });
-    const commitFiles = [...(commit.added ?? []), ...(commit.modified ?? []), ...(commit.removed ?? [])];
+    const commitFiles = [
+      ...(commit.added ?? []),
+      ...(commit.modified ?? []),
+      ...(commit.removed ?? []),
+    ];
     for (const update of workUpdates) {
       const declared = Array.isArray(update.changedFiles) ? (update.changedFiles as string[]) : [];
       if (declared.length === 0 || commitFiles.length === 0) continue;
@@ -268,7 +279,11 @@ async function processPullRequest(
   }
 }
 
-async function processCheck(prisma: PrismaClient, event: GithubEvent, projectId: string): Promise<void> {
+async function processCheck(
+  prisma: PrismaClient,
+  event: GithubEvent,
+  projectId: string,
+): Promise<void> {
   const payload = event.payload as CheckPayload;
   const run = payload.check_run ?? payload.workflow_run;
   if (!run?.head_sha) return;
@@ -314,7 +329,9 @@ async function processCheck(prisma: PrismaClient, event: GithubEvent, projectId:
       data: {
         projectId,
         featureNodeId,
-        workUpdateId: workUpdates.find((w) => w.features.some((f) => f.featureNodeId === featureNodeId))?.id ?? null,
+        workUpdateId:
+          workUpdates.find((w) => w.features.some((f) => f.featureNodeId === featureNodeId))?.id ??
+          null,
         commitSha: run.head_sha,
         source: 'CI',
         status: outcome,

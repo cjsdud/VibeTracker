@@ -69,7 +69,11 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
             <p>추적할 프로젝트를 만드세요.</p>
             <div className="field">
               <label>프로젝트 이름</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 리뷰 인사이트" />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: 리뷰 인사이트"
+              />
             </div>
             <div className="field">
               <label>목표 (선택)</label>
@@ -84,11 +88,17 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
               className="btn primary"
               style={{ width: '100%', justifyContent: 'center' }}
               disabled={!name.trim() || createProject.isPending}
-              onClick={() => createProject.mutate({ name: name.trim(), goal: goal.trim() || undefined })}
+              onClick={() =>
+                createProject.mutate({ name: name.trim(), goal: goal.trim() || undefined })
+              }
             >
               프로젝트 만들기
             </button>
-            {createProject.isError && <div className="alert error" style={{ marginTop: 10 }}>{createProject.error.message}</div>}
+            {createProject.isError && (
+              <div className="alert error" style={{ marginTop: 10 }}>
+                {createProject.error.message}
+              </div>
+            )}
           </>
         )}
 
@@ -124,7 +134,11 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
             >
               저장소 연결
             </button>
-            {connectRepo.isError && <div className="alert error" style={{ marginTop: 10 }}>{connectRepo.error.message}</div>}
+            {connectRepo.isError && (
+              <div className="alert error" style={{ marginTop: 10 }}>
+                {connectRepo.error.message}
+              </div>
+            )}
           </>
         )}
 
@@ -136,7 +150,10 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
               style={{ width: '100%', justifyContent: 'center' }}
               disabled={createToken.isPending}
               onClick={() =>
-                createToken.mutate({ name: 'default' }, { onSuccess: (d) => setPlaintext(d.token.plaintext ?? null) })
+                createToken.mutate(
+                  { name: 'default' },
+                  { onSuccess: (d) => setPlaintext(d.token.plaintext ?? null) },
+                )
               }
             >
               연결 토큰 발급
@@ -149,12 +166,14 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
             {plaintext && (
               <div className="alert success">
                 토큰 (지금만 표시됩니다):
-                <pre className="code-block" style={{ marginTop: 6 }}>{plaintext}</pre>
+                <pre className="code-block" style={{ marginTop: 6 }}>
+                  {plaintext}
+                </pre>
               </div>
             )}
             <p>
-              Claude Code에 MCP를 등록하고, 아래 프롬프트를 한 번 실행하세요. Claude Code가
-              저장소를 분석해 기능 지도 초안을 등록하면 이 화면이 자동으로 넘어갑니다.
+              Claude Code에 MCP를 등록하고, 아래 프롬프트를 한 번 실행하세요. Claude Code가 저장소를
+              분석해 기능 지도 초안을 등록하면 이 화면이 자동으로 넘어갑니다.
             </p>
             {setup.data && (
               <>
@@ -165,7 +184,11 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
               </>
             )}
             <div className="alert info">기능 지도 초안을 기다리는 중… (자동 새로고침)</div>
-            <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => navigate('/settings')}>
+            <button
+              className="btn"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => navigate('/settings')}
+            >
               연결 안내 전체 보기 (설정)
             </button>
           </>

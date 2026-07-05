@@ -7,7 +7,9 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const prisma = createPrismaClient(env.DATABASE_URL);
   const { user, project } = await ensureDemoData(prisma);
-  console.info(`데모 데이터 준비 완료: user=${user.email} project="${project.name}" (${project.id})`);
+  console.info(
+    `데모 데이터 준비 완료: user=${user.email} project="${project.name}" (${project.id})`,
+  );
   await prisma.$disconnect();
 }
 

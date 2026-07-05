@@ -23,9 +23,7 @@ export type {
 } from '../generated/client/index.js';
 
 export function createPrismaClient(databaseUrl?: string): PrismaClient {
-  return new PrismaClient(
-    databaseUrl ? { datasources: { db: { url: databaseUrl } } } : undefined,
-  );
+  return new PrismaClient(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : undefined);
 }
 
 /** 서비스 함수들이 트랜잭션 클라이언트도 받을 수 있도록 하는 최소 인터페이스 */

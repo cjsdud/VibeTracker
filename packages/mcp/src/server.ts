@@ -75,7 +75,9 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
       try {
         const input = getProjectContextInput.parse(args);
         assertProjectScope(ctx, input.projectId);
-        return textResult(await getProjectContext(ctx.prisma, input.projectId, input.focusFeatureIds));
+        return textResult(
+          await getProjectContext(ctx.prisma, input.projectId, input.focusFeatureIds),
+        );
       } catch (error) {
         return errorResult(error);
       }

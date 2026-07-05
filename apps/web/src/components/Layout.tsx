@@ -50,7 +50,12 @@ export function Layout({ project, user }: { project: ProjectDto; user: UserDto }
       </main>
       <nav className="mobile-tabs">
         {tabs.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} end={tab.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.to === '/'}
+            className={({ isActive }) => (isActive ? 'active' : '')}
+          >
             <span className="tab-icon">{tab.icon}</span>
             <span>{tab.label}</span>
             {tab.to === '/inbox' && openCount > 0 && <span className="nav-badge">{openCount}</span>}

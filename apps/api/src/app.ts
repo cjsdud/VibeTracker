@@ -73,7 +73,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     }
     request.log.error(error);
     return reply.status(500).send({
-      error: { code: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.' },
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: '서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.',
+      },
     });
   });
 
@@ -94,10 +97,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // 프로덕션: 웹 빌드 정적 서빙 + SPA fallback
   if (deps.env.NODE_ENV === 'production') {
     const { default: fastifyStatic } = await import('@fastify/static');
-    const webDist = path.resolve(
-      path.dirname(fileURLToPath(import.meta.url)),
-      '../../web/dist',
-    );
+    const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
     await app.register(fastifyStatic, { root: webDist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api') || request.url.startsWith('/mcp')) {

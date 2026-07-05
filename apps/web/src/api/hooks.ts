@@ -124,7 +124,13 @@ export function useGithubRepos(enabled: boolean) {
     queryKey: ['github-repos'],
     queryFn: () =>
       api<{
-        repos: { installationId: string | null; fullName: string; owner: string; name: string; defaultBranch: string }[];
+        repos: {
+          installationId: string | null;
+          fullName: string;
+          owner: string;
+          name: string;
+          defaultBranch: string;
+        }[];
         demo: boolean;
       }>('/api/github/repos'),
     enabled,
@@ -244,8 +250,7 @@ export function useCreateToken(projectId: string) {
         method: 'POST',
         body,
       }),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ['mcp-tokens', projectId] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['mcp-tokens', projectId] }),
   });
 }
 
@@ -254,8 +259,7 @@ export function useRevokeToken(projectId: string) {
   return useMutation({
     mutationFn: (tokenId: string) =>
       api(`/api/projects/${projectId}/mcp-tokens/${tokenId}/revoke`, { method: 'POST' }),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ['mcp-tokens', projectId] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['mcp-tokens', projectId] }),
   });
 }
 

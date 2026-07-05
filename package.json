@@ -24,6 +24,7 @@
     "postinstall": "pnpm db:generate"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.4",

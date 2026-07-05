@@ -54,7 +54,12 @@ export async function createProposal(
       await requireFeature(tx, input.projectId, input.proposedNode.parentFeatureId);
     }
 
-    const title = input.title ?? defaultTitle(input, targets.map((t) => t.name));
+    const title =
+      input.title ??
+      defaultTitle(
+        input,
+        targets.map((t) => t.name),
+      );
     const proposal = await tx.changeProposal.create({
       data: {
         projectId: input.projectId,
@@ -375,7 +380,8 @@ export async function editProposal(
       where: { id: params.proposalId, projectId: params.projectId },
     });
     if (!proposal) throw new NotFoundError('제안을 찾을 수 없습니다.');
-    if (proposal.status !== 'PENDING') throw new ConflictError('이미 처리된 제안은 수정할 수 없습니다.');
+    if (proposal.status !== 'PENDING')
+      throw new ConflictError('이미 처리된 제안은 수정할 수 없습니다.');
     const payload = { ...(proposal.payload as object), ...(params.payloadPatch ?? {}) };
     const updated = await tx.changeProposal.update({
       where: { id: proposal.id },

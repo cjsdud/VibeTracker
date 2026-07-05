@@ -46,19 +46,19 @@ pnpm build        # 웹 프로덕션 빌드 (apps/web/dist)
 
 ## 환경변수
 
-| 변수 | 필수 | 설명 |
-| --- | --- | --- |
-| `DATABASE_URL` | O | Postgres 연결 문자열 |
-| `SESSION_SECRET` | O | 세션 쿠키 서명 키 (32자 이상 무작위 문자열) |
-| `APP_URL` | O | 외부에서 접근하는 앱 URL (예: `https://vibetrack.onrender.com`) |
-| `PORT` | - | API 포트 (기본 3001, Render는 자동 주입) |
-| `DEMO_MODE` | - | `true`면 데모 로그인/데모 데이터/이벤트 시뮬레이션 활성화 |
-| `INLINE_WORKER` | - | `false`면 API 프로세스 내 Job worker를 끈다 (기본 true) |
-| `GITHUB_APP_ID` | GitHub 연동 시 | GitHub App ID |
-| `GITHUB_APP_PRIVATE_KEY` | GitHub 연동 시 | GitHub App private key (PEM, `\n` 이스케이프 가능) |
-| `GITHUB_WEBHOOK_SECRET` | GitHub 연동 시 | webhook 서명 검증 secret |
-| `GITHUB_CLIENT_ID` | GitHub 로그인 시 | OAuth client ID |
-| `GITHUB_CLIENT_SECRET` | GitHub 로그인 시 | OAuth client secret |
+| 변수                     | 필수             | 설명                                                            |
+| ------------------------ | ---------------- | --------------------------------------------------------------- |
+| `DATABASE_URL`           | O                | Postgres 연결 문자열                                            |
+| `SESSION_SECRET`         | O                | 세션 쿠키 서명 키 (32자 이상 무작위 문자열)                     |
+| `APP_URL`                | O                | 외부에서 접근하는 앱 URL (예: `https://vibetrack.onrender.com`) |
+| `PORT`                   | -                | API 포트 (기본 3001, Render는 자동 주입)                        |
+| `DEMO_MODE`              | -                | `true`면 데모 로그인/데모 데이터/이벤트 시뮬레이션 활성화       |
+| `INLINE_WORKER`          | -                | `false`면 API 프로세스 내 Job worker를 끈다 (기본 true)         |
+| `GITHUB_APP_ID`          | GitHub 연동 시   | GitHub App ID                                                   |
+| `GITHUB_APP_PRIVATE_KEY` | GitHub 연동 시   | GitHub App private key (PEM, `\n` 이스케이프 가능)              |
+| `GITHUB_WEBHOOK_SECRET`  | GitHub 연동 시   | webhook 서명 검증 secret                                        |
+| `GITHUB_CLIENT_ID`       | GitHub 로그인 시 | OAuth client ID                                                 |
+| `GITHUB_CLIENT_SECRET`   | GitHub 로그인 시 | OAuth client secret                                             |
 
 GitHub 변수가 없어도 앱은 DEMO_MODE로 정상 동작한다.
 

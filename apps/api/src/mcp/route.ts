@@ -23,8 +23,7 @@ export async function mcpRoutes(app: FastifyInstance, opts: { ctx: AppContext })
       const auth = await authenticateMcpToken(prisma, bearer);
       projectId = auth.project.id;
     } catch (error) {
-      const message =
-        error instanceof DomainError ? error.message : 'MCP 인증에 실패했습니다.';
+      const message = error instanceof DomainError ? error.message : 'MCP 인증에 실패했습니다.';
       return reply.status(error instanceof DomainError ? error.httpStatus : 401).send({
         jsonrpc: '2.0',
         error: { code: -32001, message },
@@ -64,7 +63,10 @@ export async function mcpRoutes(app: FastifyInstance, opts: { ctx: AppContext })
   });
 
   // stateless 모드에서는 GET(SSE 스트림)과 DELETE(세션 종료)를 지원하지 않는다
-  const methodNotAllowed = async (_request: unknown, reply: { status: (c: number) => { send: (b: unknown) => unknown } }) =>
+  const methodNotAllowed = async (
+    _request: unknown,
+    reply: { status: (c: number) => { send: (b: unknown) => unknown } },
+  ) =>
     reply.status(405).send({
       jsonrpc: '2.0',
       error: { code: -32000, message: 'Method not allowed. POST /mcp를 사용하세요.' },

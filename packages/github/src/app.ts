@@ -44,7 +44,9 @@ export class GithubAppAdapter {
 
   private getApp(): App {
     if (!this.isConfigured()) {
-      throw new Error('GitHub App이 설정되지 않았습니다. GITHUB_APP_ID/GITHUB_APP_PRIVATE_KEY를 확인하세요.');
+      throw new Error(
+        'GitHub App이 설정되지 않았습니다. GITHUB_APP_ID/GITHUB_APP_PRIVATE_KEY를 확인하세요.',
+      );
     }
     if (!this.app) {
       // 환경변수에 \n 으로 이스케이프된 PEM을 지원한다.
@@ -116,8 +118,7 @@ export class GithubAppAdapter {
     });
     return data.installations.map((inst) => ({
       id: inst.id,
-      accountLogin:
-        inst.account && 'login' in inst.account ? (inst.account.login ?? '') : '',
+      accountLogin: inst.account && 'login' in inst.account ? (inst.account.login ?? '') : '',
     }));
   }
 }

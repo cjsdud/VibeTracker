@@ -88,6 +88,9 @@ export async function authenticateMcpToken(
   if (token.revokedAt) {
     throw new UnauthorizedError('폐기된 연결 토큰입니다. 설정에서 재발급하세요.');
   }
-  await db.mcpToken.update({ where: { id: token.id }, data: { lastUsedAt: new Date() } });
-  return { project: token.project, token };
+  const updated = await db.mcpToken.update({
+    where: { id: token.id },
+    data: { lastUsedAt: new Date() },
+  });
+  return { project: token.project, token: updated };
 }

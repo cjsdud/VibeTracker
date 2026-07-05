@@ -53,10 +53,14 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <div>
-          <span className={`badge ${item.type === 'TEST_FAILURE' ? 'broken' : item.type === 'STRUCTURE_PROPOSAL' || item.type === 'FEATURE_MAP_REVIEW' ? 'awaiting-approval' : 'needs-verification'}`}>
+          <span
+            className={`badge ${item.type === 'TEST_FAILURE' ? 'broken' : item.type === 'STRUCTURE_PROPOSAL' || item.type === 'FEATURE_MAP_REVIEW' ? 'awaiting-approval' : 'needs-verification'}`}
+          >
             {typeLabels[item.type] ?? item.type}
           </span>
-          <div className="title" style={{ fontWeight: 700, marginTop: 8 }}>{item.title}</div>
+          <div className="title" style={{ fontWeight: 700, marginTop: 8 }}>
+            {item.title}
+          </div>
         </div>
         <div className="meta" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
           {new Date(item.createdAt).toLocaleString('ko-KR')}
@@ -65,11 +69,15 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
 
       {item.changeProposal && (
         <div style={{ marginTop: 8 }}>
-          <p style={{ margin: '4px 0', color: 'var(--text-muted)' }}>{item.changeProposal.reason}</p>
+          <p style={{ margin: '4px 0', color: 'var(--text-muted)' }}>
+            {item.changeProposal.reason}
+          </p>
           <div className="chip-list" style={{ margin: '8px 0' }}>
             <span className="chip">유형: {proposalTypeLabels[item.changeProposal.type]}</span>
             {item.changeProposal.targetFeatureNames.map((name) => (
-              <span key={name} className="chip">대상: {name}</span>
+              <span key={name} className="chip">
+                대상: {name}
+              </span>
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -93,14 +101,18 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
             </button>
           </div>
           {proposalAction.isError && (
-            <div className="alert error" style={{ marginTop: 8 }}>{proposalAction.error.message}</div>
+            <div className="alert error" style={{ marginTop: 8 }}>
+              {proposalAction.error.message}
+            </div>
           )}
         </div>
       )}
 
       {item.type === 'FEATURE_MAP_REVIEW' && (
         <div style={{ marginTop: 10 }}>
-          <Link className="btn primary small" to="/features">기능 지도에서 검토하기</Link>
+          <Link className="btn primary small" to="/features">
+            기능 지도에서 검토하기
+          </Link>
         </div>
       )}
 
@@ -109,7 +121,9 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
           <h3>변경 파일</h3>
           <div className="chip-list">
             {detail.changedFiles!.slice(0, 10).map((f) => (
-              <span key={f} className="chip">{f}</span>
+              <span key={f} className="chip">
+                {f}
+              </span>
             ))}
           </div>
         </div>
@@ -119,18 +133,28 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
           <h3>기록된 파일 vs 실제 커밋 파일</h3>
           <div className="chip-list">
             {detail.declaredFiles.slice(0, 6).map((f) => (
-              <span key={`d-${f}`} className="chip">기록: {f}</span>
+              <span key={`d-${f}`} className="chip">
+                기록: {f}
+              </span>
             ))}
             {detail.actualFiles?.slice(0, 6).map((f) => (
-              <span key={`a-${f}`} className="chip">실제: {f}</span>
+              <span key={`a-${f}`} className="chip">
+                실제: {f}
+              </span>
             ))}
           </div>
         </div>
       )}
-      {detail.hint && <div className="alert info" style={{ marginTop: 8 }}>{detail.hint}</div>}
+      {detail.hint && (
+        <div className="alert info" style={{ marginTop: 8 }}>
+          {detail.hint}
+        </div>
+      )}
 
       {item.type !== 'STRUCTURE_PROPOSAL' && item.type !== 'FEATURE_MAP_REVIEW' && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div
+          style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}
+        >
           {item.type === 'UNTRACKED_CHANGE' && (
             <>
               <select
@@ -140,7 +164,9 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
               >
                 <option value="">기능에 연결…</option>
                 {flattenTree(tree.data?.tree ?? []).map((opt) => (
-                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
                 ))}
               </select>
               <button
@@ -182,7 +208,9 @@ export function InboxPage({ project }: { project: ProjectDto }) {
   return (
     <>
       <h1 className="page-title">Inbox</h1>
-      <p className="page-desc">사용자의 확인이 필요한 것만 모았습니다. 구조 변경은 여기서 승인해야 반영됩니다.</p>
+      <p className="page-desc">
+        사용자의 확인이 필요한 것만 모았습니다. 구조 변경은 여기서 승인해야 반영됩니다.
+      </p>
       {inbox.isLoading ? (
         <div className="card empty">불러오는 중…</div>
       ) : items.length === 0 ? (

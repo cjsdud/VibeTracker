@@ -19,8 +19,7 @@ function summarizeGithubEvent(event: {
   }
   if (event.eventType === 'check_run' || event.eventType === 'workflow_run') {
     const run = (payload?.check_run ?? payload?.workflow_run) as
-      | { name?: string; conclusion?: string }
-      | undefined;
+      { name?: string; conclusion?: string } | undefined;
     return `${event.eventType}: ${run?.name ?? ''} → ${run?.conclusion ?? event.action ?? ''}`;
   }
   return `${event.eventType} ${event.action ?? ''}`.trim();

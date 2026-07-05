@@ -21,8 +21,19 @@ function TreeNodes({
             className={`tree-node ${selectedId === node.id ? 'selected' : ''}`}
             onClick={() => onSelect(node.id)}
           >
-            {node.isCore && <span className="core-mark" title="핵심 기능">★</span>}
-            <span className="name" style={node.lifecycle === 'RETIRED' ? { textDecoration: 'line-through', color: 'var(--text-muted)' } : undefined}>
+            {node.isCore && (
+              <span className="core-mark" title="핵심 기능">
+                ★
+              </span>
+            )}
+            <span
+              className="name"
+              style={
+                node.lifecycle === 'RETIRED'
+                  ? { textDecoration: 'line-through', color: 'var(--text-muted)' }
+                  : undefined
+              }
+            >
               {node.name}
             </span>
             <StatusBadge status={node.displayStatus} />
@@ -50,17 +61,31 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
 
   return (
     <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
           <h2 style={{ fontSize: 18, marginBottom: 2 }}>
             {feature.node.isCore && <span className="core-mark">★ </span>}
             {feature.node.name}
           </h2>
-          {feature.parentName && <div className="meta" style={{ color: 'var(--text-muted)', fontSize: 13 }}>상위: {feature.parentName}</div>}
+          {feature.parentName && (
+            <div className="meta" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+              상위: {feature.parentName}
+            </div>
+          )}
         </div>
         <StatusBadge status={feature.node.displayStatus} />
       </div>
-      {feature.node.description && <p style={{ color: 'var(--text-muted)' }}>{feature.node.description}</p>}
+      {feature.node.description && (
+        <p style={{ color: 'var(--text-muted)' }}>{feature.node.description}</p>
+      )}
 
       <div className="detail-section" style={{ marginTop: 10 }}>
         <AxisBadges
@@ -75,7 +100,9 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
           <h3>연결된 파일</h3>
           <div className="chip-list">
             {files.map((e) => (
-              <span key={e.id} className={`chip ${e.missing ? 'missing' : ''}`}>{e.path}</span>
+              <span key={e.id} className={`chip ${e.missing ? 'missing' : ''}`}>
+                {e.path}
+              </span>
             ))}
           </div>
         </div>
@@ -85,7 +112,9 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
           <h3>라우트 / API</h3>
           <div className="chip-list">
             {routes.map((e) => (
-              <span key={e.id} className="chip">{e.path}</span>
+              <span key={e.id} className="chip">
+                {e.path}
+              </span>
             ))}
           </div>
         </div>
@@ -95,7 +124,9 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
           <h3>연결된 테스트</h3>
           <div className="chip-list">
             {tests.map((e) => (
-              <span key={e.id} className={`chip ${e.missing ? 'missing' : ''}`}>{e.path}</span>
+              <span key={e.id} className={`chip ${e.missing ? 'missing' : ''}`}>
+                {e.path}
+              </span>
             ))}
           </div>
         </div>
@@ -110,7 +141,9 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
               </span>
             ))}
             {prs.map((e) => (
-              <span key={e.id} className="chip">PR #{e.ref} {e.title ? `· ${e.title.slice(0, 40)}` : ''}</span>
+              <span key={e.id} className="chip">
+                PR #{e.ref} {e.title ? `· ${e.title.slice(0, 40)}` : ''}
+              </span>
             ))}
           </div>
         </div>
@@ -153,7 +186,13 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
             <div className="list-item" key={p.id}>
               <div>
                 <div className="title">{p.title}</div>
-                <div className="meta">{p.status === 'PENDING' ? '승인 대기' : p.status === 'APPROVED' ? '승인됨' : '거절됨'}</div>
+                <div className="meta">
+                  {p.status === 'PENDING'
+                    ? '승인 대기'
+                    : p.status === 'APPROVED'
+                      ? '승인됨'
+                      : '거절됨'}
+                </div>
               </div>
             </div>
           ))}
@@ -217,7 +256,11 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
           >
             {approve.isPending ? '승인 중…' : '기능 지도 승인'}
           </button>
-          {approve.isError && <div className="alert error" style={{ marginTop: 10 }}>{approve.error.message}</div>}
+          {approve.isError && (
+            <div className="alert error" style={{ marginTop: 10 }}>
+              {approve.error.message}
+            </div>
+          )}
         </div>
       )}
 

@@ -13,7 +13,9 @@ function CopyBlock({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div style={{ marginBottom: 12 }}>
-      {label && <h3 style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</h3>}
+      {label && (
+        <h3 style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 6px' }}>{label}</h3>
+      )}
       <div className="copy-row">
         <pre className="code-block">{text}</pre>
         <button
@@ -87,7 +89,10 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
             <CopyBlock label="1) Claude Code에 MCP 추가" text={setupData.addCommandExample} />
             <CopyBlock label="2) 또는 .mcp.json에 추가" text={setupData.mcpJsonExample} />
             <CopyBlock label="3) CLAUDE.md에 추가할 작업 규칙" text={setupData.claudeMdExample} />
-            <CopyBlock label="4) 초기 기능 지도 생성 프롬프트 (한 번 실행)" text={setupData.bootstrapPrompt} />
+            <CopyBlock
+              label="4) 초기 기능 지도 생성 프롬프트 (한 번 실행)"
+              text={setupData.bootstrapPrompt}
+            />
           </>
         )}
       </div>
@@ -97,7 +102,9 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
         {newToken && (
           <div className="alert success">
             새 토큰이 발급되었습니다. 지금만 표시됩니다:
-            <pre className="code-block" style={{ marginTop: 8 }}>{newToken}</pre>
+            <pre className="code-block" style={{ marginTop: 8 }}>
+              {newToken}
+            </pre>
           </div>
         )}
         {(tokens.data?.tokens ?? []).map((token) => (
@@ -108,7 +115,8 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
               </div>
               <div className="meta">
                 발급 {new Date(token.createdAt).toLocaleDateString('ko-KR')}
-                {token.lastUsedAt && ` · 마지막 사용 ${new Date(token.lastUsedAt).toLocaleString('ko-KR')}`}
+                {token.lastUsedAt &&
+                  ` · 마지막 사용 ${new Date(token.lastUsedAt).toLocaleString('ko-KR')}`}
               </div>
             </div>
             {token.revokedAt ? (
@@ -146,23 +154,47 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
             실제 webhook 파이프라인(저장 → Job → 처리)을 그대로 통과하는 합성 이벤트를 보냅니다.
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn small" disabled={simulate.isPending} onClick={() => simulate.mutate('push_tracked')}>
+            <button
+              className="btn small"
+              disabled={simulate.isPending}
+              onClick={() => simulate.mutate('push_tracked')}
+            >
               push (추적되는 파일)
             </button>
-            <button className="btn small" disabled={simulate.isPending} onClick={() => simulate.mutate('push_untracked')}>
+            <button
+              className="btn small"
+              disabled={simulate.isPending}
+              onClick={() => simulate.mutate('push_untracked')}
+            >
               push (추적 안 된 파일)
             </button>
-            <button className="btn small" disabled={simulate.isPending} onClick={() => simulate.mutate('check_success')}>
+            <button
+              className="btn small"
+              disabled={simulate.isPending}
+              onClick={() => simulate.mutate('check_success')}
+            >
               CI 성공
             </button>
-            <button className="btn small" disabled={simulate.isPending} onClick={() => simulate.mutate('check_failure')}>
+            <button
+              className="btn small"
+              disabled={simulate.isPending}
+              onClick={() => simulate.mutate('check_failure')}
+            >
               CI 실패
             </button>
-            <button className="btn small" disabled={simulate.isPending} onClick={() => simulate.mutate('pr_opened')}>
+            <button
+              className="btn small"
+              disabled={simulate.isPending}
+              onClick={() => simulate.mutate('pr_opened')}
+            >
               PR 열림
             </button>
           </div>
-          {simulate.isSuccess && <div className="alert success" style={{ marginTop: 10 }}>이벤트가 처리되었습니다. 대시보드/Inbox를 확인하세요.</div>}
+          {simulate.isSuccess && (
+            <div className="alert success" style={{ marginTop: 10 }}>
+              이벤트가 처리되었습니다. 대시보드/Inbox를 확인하세요.
+            </div>
+          )}
         </div>
       )}
 

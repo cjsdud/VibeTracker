@@ -58,14 +58,14 @@ Job worker ──poll──▶ Job 테이블 ──▶ packages/github processor
 
 ### MCP 도구 6개
 
-| 도구 | 역할 | 쓰기 여부 |
-| --- | --- | --- |
-| `get_project_context` | 프로젝트 목표, 기능 트리 요약, 최근 작업, 검증 필요, 미해결 질문, 승인 대기, 다음 작업 | 읽기 |
-| `get_feature_context` | 기능 상태, 연결 파일/테스트/커밋, 최근 작업, 미해결 질문 | 읽기 |
-| `bootstrap_project_map` | 초기 기능 지도 초안 등록. **무조건 DRAFT**, 웹 승인 후 ACTIVE | 쓰기 |
-| `record_work_update` | 작업 결과 기록. 타임라인/증거/검증 상태 자동 갱신. 구조 변경은 불가 | 쓰기 |
-| `propose_structure_change` | 구조 변경 제안. **무조건 PENDING ChangeProposal** 생성 | 쓰기 |
-| `get_next_task` | 규칙 기반 우선 작업 1개 + 이유 + 실행 지시문 | 읽기 |
+| 도구                       | 역할                                                                                   | 쓰기 여부 |
+| -------------------------- | -------------------------------------------------------------------------------------- | --------- |
+| `get_project_context`      | 프로젝트 목표, 기능 트리 요약, 최근 작업, 검증 필요, 미해결 질문, 승인 대기, 다음 작업 | 읽기      |
+| `get_feature_context`      | 기능 상태, 연결 파일/테스트/커밋, 최근 작업, 미해결 질문                               | 읽기      |
+| `bootstrap_project_map`    | 초기 기능 지도 초안 등록. **무조건 DRAFT**, 웹 승인 후 ACTIVE                          | 쓰기      |
+| `record_work_update`       | 작업 결과 기록. 타임라인/증거/검증 상태 자동 갱신. 구조 변경은 불가                    | 쓰기      |
+| `propose_structure_change` | 구조 변경 제안. **무조건 PENDING ChangeProposal** 생성                                 | 쓰기      |
+| `get_next_task`            | 규칙 기반 우선 작업 1개 + 이유 + 실행 지시문                                           | 읽기      |
 
 ## GitHub webhook 구조
 
@@ -106,7 +106,7 @@ Job worker ──poll──▶ Job 테이블 ──▶ packages/github processor
   `AuthProvider` adapter로 분리했다.
 - **MCP**: 프로젝트 범위 Bearer 토큰 (위 참조).
 - **권한 격리**: 모든 프로젝트 데이터 접근은 `tracker-core`의 `requireProjectAccess(prisma,
-  projectId, userId)`를 통과해야 한다. 다른 사용자의 프로젝트 접근은 404로 처리한다
+projectId, userId)`를 통과해야 한다. 다른 사용자의 프로젝트 접근은 404로 처리한다
   (존재 여부 노출 방지). MCP 쪽은 토큰의 projectId 범위로 격리된다.
 - 민감 값(토큰 평문, 세션 시크릿)은 로그에 남기지 않는다.
 
@@ -115,26 +115,26 @@ Job worker ──poll──▶ Job 테이블 ──▶ packages/github processor
 Prisma schema: `packages/tracker-core/prisma/schema.prisma`
 (생성 클라이언트는 `packages/tracker-core/generated/client`로 출력하고 tracker-core가 재수출한다)
 
-| 모델 | 역할 |
-| --- | --- |
-| `User` | 사용자 (demo / GitHub OAuth) |
-| `Project` | 프로젝트. 목표(goal) 포함. 모든 데이터의 격리 경계 |
-| `Repository` | 연결된 GitHub 저장소 + 기본 브랜치 |
-| `GithubInstallation` | GitHub App 설치 정보 |
-| `McpToken` | 프로젝트 범위 MCP 연결 토큰 (해시 저장, 폐기 가능) |
-| `FeatureNode` | 기능 노드. **고정 ID**, parentId 트리, 3축 상태 |
-| `FeatureRelation` | 병합/분리/대체 계보 (MERGED_INTO / SPLIT_FROM / REPLACED_BY) |
-| `FeatureEvidence` | 파일/라우트/API/테스트/커밋/PR/문서/작업기록 증거. **파일 경로는 여기에만 저장** |
-| `WorkUpdate` | Claude Code 작업 기록 (요약, 변경 파일, SHA, 테스트, 다음 작업) |
-| `WorkUpdateFeature` | 작업 기록 ↔ 기능 다대다 |
-| `ChangeProposal` | 구조 변경 제안 (CREATE/RETIRE/RENAME/MOVE/MERGE/SPLIT/REPLACE, PENDING→APPROVED/REJECTED) |
-| `FeatureTreeVersion` | 구조 변경마다 남는 트리 스냅샷 버전 (삭제하지 않음) |
-| `GithubEvent` | 수신 webhook 원본 + deliveryId 중복 방지 |
-| `VerificationRun` | 테스트/CI 실행 결과 (CI / MCP / MANUAL) |
-| `Job` | Postgres 기반 비동기 작업 큐 (재시도, backoff) |
-| `AuditLog` | 승인/거절/토큰 발급 등 감사 기록 (삭제하지 않음) |
-| `InboxItem` | 사용자가 확인해야 하는 항목 (제안, 추적 안 된 변경, 불일치, 테스트 실패, 지도 검토) |
-| `OpenQuestion` | 기능/작업 기록에 달린 미해결 질문 |
+| 모델                 | 역할                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| `User`               | 사용자 (demo / GitHub OAuth)                                                              |
+| `Project`            | 프로젝트. 목표(goal) 포함. 모든 데이터의 격리 경계                                        |
+| `Repository`         | 연결된 GitHub 저장소 + 기본 브랜치                                                        |
+| `GithubInstallation` | GitHub App 설치 정보                                                                      |
+| `McpToken`           | 프로젝트 범위 MCP 연결 토큰 (해시 저장, 폐기 가능)                                        |
+| `FeatureNode`        | 기능 노드. **고정 ID**, parentId 트리, 3축 상태                                           |
+| `FeatureRelation`    | 병합/분리/대체 계보 (MERGED_INTO / SPLIT_FROM / REPLACED_BY)                              |
+| `FeatureEvidence`    | 파일/라우트/API/테스트/커밋/PR/문서/작업기록 증거. **파일 경로는 여기에만 저장**          |
+| `WorkUpdate`         | Claude Code 작업 기록 (요약, 변경 파일, SHA, 테스트, 다음 작업)                           |
+| `WorkUpdateFeature`  | 작업 기록 ↔ 기능 다대다                                                                   |
+| `ChangeProposal`     | 구조 변경 제안 (CREATE/RETIRE/RENAME/MOVE/MERGE/SPLIT/REPLACE, PENDING→APPROVED/REJECTED) |
+| `FeatureTreeVersion` | 구조 변경마다 남는 트리 스냅샷 버전 (삭제하지 않음)                                       |
+| `GithubEvent`        | 수신 webhook 원본 + deliveryId 중복 방지                                                  |
+| `VerificationRun`    | 테스트/CI 실행 결과 (CI / MCP / MANUAL)                                                   |
+| `Job`                | Postgres 기반 비동기 작업 큐 (재시도, backoff)                                            |
+| `AuditLog`           | 승인/거절/토큰 발급 등 감사 기록 (삭제하지 않음)                                          |
+| `InboxItem`          | 사용자가 확인해야 하는 항목 (제안, 추적 안 된 변경, 불일치, 테스트 실패, 지도 검토)       |
+| `OpenQuestion`       | 기능/작업 기록에 달린 미해결 질문                                                         |
 
 핵심 원칙:
 

@@ -113,86 +113,80 @@ export type ProposedNode = z.infer<typeof proposedNodeSchema>;
  */
 export const proposeStructureChangeBase = z.object({
   projectId: z.string().min(1),
-    type: z.enum(['CREATE', 'RETIRE', 'RENAME', 'MOVE', 'MERGE', 'SPLIT', 'REPLACE']),
-    targetFeatureIds: z
-      .array(z.string().min(1))
-      .max(20)
-      .optional()
-      .describe('변경 대상 기존 기능 ID (CREATE 외에는 필수)'),
-    title: z.string().max(200).optional().describe('제안 제목 (생략 시 자동 생성)'),
-    reason: z.string().min(1).max(4000).describe('왜 이 구조 변경이 필요한지'),
-    proposedNode: proposedNodeSchema
-      .optional()
-      .describe('CREATE/REPLACE/MERGE(새 노드로 병합)에서 만들 노드'),
-    proposedNodes: z
-      .array(proposedNodeSchema)
-      .max(20)
-      .optional()
-      .describe('SPLIT에서 만들 노드 목록 (2개 이상)'),
-    newName: z.string().min(1).max(120).optional().describe('RENAME의 새 이름'),
-    newParentFeatureId: z
-      .string()
-      .min(1)
-      .nullable()
-      .optional()
-      .describe('MOVE의 새 부모 (null이면 최상위)'),
-    mergeIntoFeatureId: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('MERGE에서 흡수할 기존 기능 ID (생략 시 proposedNode로 새 노드 생성)'),
-    retireSource: z
-      .boolean()
-      .optional()
-      .describe('SPLIT에서 원본 기능을 종료할지 (기본 true)'),
-    evidence: z
-      .object({
-        files: z.array(z.string().min(1)).max(100).optional(),
-        commits: z.array(z.string().min(1)).max(50).optional(),
-        notes: z.string().max(2000).optional(),
-      })
-      .optional(),
+  type: z.enum(['CREATE', 'RETIRE', 'RENAME', 'MOVE', 'MERGE', 'SPLIT', 'REPLACE']),
+  targetFeatureIds: z
+    .array(z.string().min(1))
+    .max(20)
+    .optional()
+    .describe('변경 대상 기존 기능 ID (CREATE 외에는 필수)'),
+  title: z.string().max(200).optional().describe('제안 제목 (생략 시 자동 생성)'),
+  reason: z.string().min(1).max(4000).describe('왜 이 구조 변경이 필요한지'),
+  proposedNode: proposedNodeSchema
+    .optional()
+    .describe('CREATE/REPLACE/MERGE(새 노드로 병합)에서 만들 노드'),
+  proposedNodes: z
+    .array(proposedNodeSchema)
+    .max(20)
+    .optional()
+    .describe('SPLIT에서 만들 노드 목록 (2개 이상)'),
+  newName: z.string().min(1).max(120).optional().describe('RENAME의 새 이름'),
+  newParentFeatureId: z
+    .string()
+    .min(1)
+    .nullable()
+    .optional()
+    .describe('MOVE의 새 부모 (null이면 최상위)'),
+  mergeIntoFeatureId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('MERGE에서 흡수할 기존 기능 ID (생략 시 proposedNode로 새 노드 생성)'),
+  retireSource: z.boolean().optional().describe('SPLIT에서 원본 기능을 종료할지 (기본 true)'),
+  evidence: z
+    .object({
+      files: z.array(z.string().min(1)).max(100).optional(),
+      commits: z.array(z.string().min(1)).max(50).optional(),
+      notes: z.string().max(2000).optional(),
+    })
+    .optional(),
 });
 
 export const proposeStructureChangeInput = proposeStructureChangeBase.superRefine((val, ctx) => {
-    const targets = val.targetFeatureIds ?? [];
-    const need = (cond: boolean, message: string) => {
-      if (!cond) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
-    };
-    switch (val.type) {
-      case 'CREATE':
-        need(!!val.proposedNode, 'CREATE에는 proposedNode가 필요합니다');
-        break;
-      case 'RETIRE':
-        need(targets.length >= 1, 'RETIRE에는 targetFeatureIds가 1개 이상 필요합니다');
-        break;
-      case 'RENAME':
-        need(targets.length === 1, 'RENAME에는 targetFeatureIds가 정확히 1개 필요합니다');
-        need(!!val.newName, 'RENAME에는 newName이 필요합니다');
-        break;
-      case 'MOVE':
-        need(targets.length === 1, 'MOVE에는 targetFeatureIds가 정확히 1개 필요합니다');
-        need(val.newParentFeatureId !== undefined, 'MOVE에는 newParentFeatureId가 필요합니다');
-        break;
-      case 'MERGE':
-        need(targets.length >= 2, 'MERGE에는 targetFeatureIds가 2개 이상 필요합니다');
-        need(
-          !!val.mergeIntoFeatureId || !!val.proposedNode,
-          'MERGE에는 mergeIntoFeatureId 또는 proposedNode가 필요합니다',
-        );
-        break;
-      case 'SPLIT':
-        need(targets.length === 1, 'SPLIT에는 targetFeatureIds가 정확히 1개 필요합니다');
-        need(
-          (val.proposedNodes?.length ?? 0) >= 2,
-          'SPLIT에는 proposedNodes가 2개 이상 필요합니다',
-        );
-        break;
-      case 'REPLACE':
-        need(targets.length === 1, 'REPLACE에는 targetFeatureIds가 정확히 1개 필요합니다');
-        need(!!val.proposedNode, 'REPLACE에는 proposedNode가 필요합니다');
-        break;
-    }
+  const targets = val.targetFeatureIds ?? [];
+  const need = (cond: boolean, message: string) => {
+    if (!cond) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  };
+  switch (val.type) {
+    case 'CREATE':
+      need(!!val.proposedNode, 'CREATE에는 proposedNode가 필요합니다');
+      break;
+    case 'RETIRE':
+      need(targets.length >= 1, 'RETIRE에는 targetFeatureIds가 1개 이상 필요합니다');
+      break;
+    case 'RENAME':
+      need(targets.length === 1, 'RENAME에는 targetFeatureIds가 정확히 1개 필요합니다');
+      need(!!val.newName, 'RENAME에는 newName이 필요합니다');
+      break;
+    case 'MOVE':
+      need(targets.length === 1, 'MOVE에는 targetFeatureIds가 정확히 1개 필요합니다');
+      need(val.newParentFeatureId !== undefined, 'MOVE에는 newParentFeatureId가 필요합니다');
+      break;
+    case 'MERGE':
+      need(targets.length >= 2, 'MERGE에는 targetFeatureIds가 2개 이상 필요합니다');
+      need(
+        !!val.mergeIntoFeatureId || !!val.proposedNode,
+        'MERGE에는 mergeIntoFeatureId 또는 proposedNode가 필요합니다',
+      );
+      break;
+    case 'SPLIT':
+      need(targets.length === 1, 'SPLIT에는 targetFeatureIds가 정확히 1개 필요합니다');
+      need((val.proposedNodes?.length ?? 0) >= 2, 'SPLIT에는 proposedNodes가 2개 이상 필요합니다');
+      break;
+    case 'REPLACE':
+      need(targets.length === 1, 'REPLACE에는 targetFeatureIds가 정확히 1개 필요합니다');
+      need(!!val.proposedNode, 'REPLACE에는 proposedNode가 필요합니다');
+      break;
+  }
 });
 export type ProposeStructureChangeInput = z.infer<typeof proposeStructureChangeInput>;
 

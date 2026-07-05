@@ -22,22 +22,29 @@ const workUpdateInclude = {
 } as const;
 
 export async function getDashboardCounts(db: Db, projectId: string): Promise<DashboardCounts> {
-  const [coreFeatures, activeFeatures, needsVerification, pendingProposals, untrackedChanges, openQuestions, draftFeatures] =
-    await Promise.all([
-      db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE', isCore: true } }),
-      db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE' } }),
-      db.featureNode.count({
-        where: {
-          projectId,
-          lifecycle: 'ACTIVE',
-          verificationStatus: { in: ['NEEDS_VERIFICATION', 'FAILED'] },
-        },
-      }),
-      db.changeProposal.count({ where: { projectId, status: 'PENDING' } }),
-      db.inboxItem.count({ where: { projectId, type: 'UNTRACKED_CHANGE', status: 'OPEN' } }),
-      db.openQuestion.count({ where: { projectId, status: 'OPEN' } }),
-      db.featureNode.count({ where: { projectId, lifecycle: 'DRAFT' } }),
-    ]);
+  const [
+    coreFeatures,
+    activeFeatures,
+    needsVerification,
+    pendingProposals,
+    untrackedChanges,
+    openQuestions,
+    draftFeatures,
+  ] = await Promise.all([
+    db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE', isCore: true } }),
+    db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE' } }),
+    db.featureNode.count({
+      where: {
+        projectId,
+        lifecycle: 'ACTIVE',
+        verificationStatus: { in: ['NEEDS_VERIFICATION', 'FAILED'] },
+      },
+    }),
+    db.changeProposal.count({ where: { projectId, status: 'PENDING' } }),
+    db.inboxItem.count({ where: { projectId, type: 'UNTRACKED_CHANGE', status: 'OPEN' } }),
+    db.openQuestion.count({ where: { projectId, status: 'OPEN' } }),
+    db.featureNode.count({ where: { projectId, lifecycle: 'DRAFT' } }),
+  ]);
   return {
     coreFeatures,
     activeFeatures,

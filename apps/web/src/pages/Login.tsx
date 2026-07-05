@@ -20,7 +20,11 @@ export function LoginPage() {
           다음에 무엇을 해야 하는지 보여주는 프로젝트 기억 서비스.
         </p>
         {oauthAvailable && (
-          <a className="btn primary" style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }} href="/api/auth/github">
+          <a
+            className="btn primary"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }}
+            href="/api/auth/github"
+          >
             GitHub로 로그인
           </a>
         )}

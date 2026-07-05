@@ -20,10 +20,8 @@ export async function githubWebhookRoutes(
 
   await app.register(async (scope) => {
     // 이 스코프에서만 raw body를 유지한다 (서명은 원문 기준으로 검증해야 한다)
-    scope.addContentTypeParser(
-      'application/json',
-      { parseAs: 'buffer' },
-      (_request, body, done) => done(null, body),
+    scope.addContentTypeParser('application/json', { parseAs: 'buffer' }, (_request, body, done) =>
+      done(null, body),
     );
 
     scope.post('/api/github/webhook', async (request, reply) => {

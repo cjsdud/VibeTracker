@@ -1,8 +1,4 @@
-import {
-  type ImplementationStatus,
-  type Lifecycle,
-  type VerificationStatus,
-} from './enums.js';
+import { type ImplementationStatus, type Lifecycle, type VerificationStatus } from './enums.js';
 
 /**
  * 사용자에게 보여주는 조합 상태.

@@ -8,7 +8,13 @@ import { processOneJob } from '../jobs/worker.js';
 import { DEMO_SHAS } from '../demo/seed.js';
 
 const simulateSchema = z.object({
-  scenario: z.enum(['push_tracked', 'push_untracked', 'check_success', 'check_failure', 'pr_opened']),
+  scenario: z.enum([
+    'push_tracked',
+    'push_untracked',
+    'check_success',
+    'check_failure',
+    'pr_opened',
+  ]),
 });
 
 /**

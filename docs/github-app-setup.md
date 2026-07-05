@@ -16,13 +16,13 @@ GitHub → Settings → Developer settings → GitHub Apps → **New GitHub App*
 
 ## 2. 권한 (Repository permissions)
 
-| 권한 | 수준 | 용도 |
-| --- | --- | --- |
-| Contents | Read-only | 커밋/파일 변경 확인 |
-| Metadata | Read-only | 저장소 기본 정보 |
-| Pull requests | Read-only | PR 이벤트 |
-| Checks | Read-only | check_run 결과 |
-| Actions | Read-only | workflow_run 결과 |
+| 권한          | 수준      | 용도                |
+| ------------- | --------- | ------------------- |
+| Contents      | Read-only | 커밋/파일 변경 확인 |
+| Metadata      | Read-only | 저장소 기본 정보    |
+| Pull requests | Read-only | PR 이벤트           |
+| Checks        | Read-only | check_run 결과      |
+| Actions       | Read-only | workflow_run 결과   |
 
 ## 3. 이벤트 구독 (Subscribe to events)
 

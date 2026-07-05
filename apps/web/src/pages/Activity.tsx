@@ -29,7 +29,9 @@ export function ActivityPage({ project }: { project: ProjectDto }) {
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span className={`badge ${kind.className}`}>{kind.label}</span>
                   <div>
-                    <div className="title" style={{ fontWeight: 600 }}>{item.title}</div>
+                    <div className="title" style={{ fontWeight: 600 }}>
+                      {item.title}
+                    </div>
                     {item.detail && <div className="meta">{item.detail}</div>}
                   </div>
                 </div>

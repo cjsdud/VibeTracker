@@ -116,7 +116,12 @@ export async function featureRoutes(
             select: { name: true },
           })
         : [];
-      result.push(toProposalDto(proposal, targets.map((t) => t.name)));
+      result.push(
+        toProposalDto(
+          proposal,
+          targets.map((t) => t.name),
+        ),
+      );
     }
     return { proposals: result };
   });

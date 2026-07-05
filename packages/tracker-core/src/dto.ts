@@ -50,7 +50,9 @@ export function buildFeatureTree(nodes: FeatureNode[]): FeatureNodeDto[] {
   }
   const build = (parentId: string | null): FeatureNodeDto[] => {
     const children = byParent.get(parentId) ?? [];
-    children.sort((a, b) => a.orderIndex - b.orderIndex || a.createdAt.getTime() - b.createdAt.getTime());
+    children.sort(
+      (a, b) => a.orderIndex - b.orderIndex || a.createdAt.getTime() - b.createdAt.getTime(),
+    );
     return children.map((n) => toFeatureNodeDto(n, build(n.id)));
   };
   return build(null);
