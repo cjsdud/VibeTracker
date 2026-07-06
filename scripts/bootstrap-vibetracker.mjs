@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
-const PROJECT_ID = process.env.VIBETRACK_PROJECT_ID ?? 'cmr99ifp40001d54kfilygc9n';
+const PROJECT_ID = process.env.VIBETRACK_PROJECT_ID ?? 'cmr9ba8si0001db4lppgv53pp';
 
 const mcpConfig = JSON.parse(readFileSync(new URL('../.mcp.json', import.meta.url), 'utf8'))
   .mcpServers.vibetrack;
