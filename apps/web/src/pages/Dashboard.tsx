@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import type { ProjectDto } from '@vibetrack/shared';
-import { useDashboard } from '../api/hooks.js';
+import { summarizeFeatures, type ProjectDto } from '@vibetrack/shared';
+import { useDashboard, useFeatureTree } from '../api/hooks.js';
+import { SegBar, SummaryChips } from '../components/StatusSummary.js';
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -15,6 +16,8 @@ function timeAgo(iso: string): string {
 export function DashboardPage({ project }: { project: ProjectDto }) {
   const dashboard = useDashboard(project.id);
   const data = dashboard.data;
+  const tree = useFeatureTree(project.id);
+  const summary = summarizeFeatures(tree.data?.tree ?? []);
 
   return (
     <>
@@ -35,6 +38,19 @@ export function DashboardPage({ project }: { project: ProjectDto }) {
           <h2>다음 작업</h2>
           <p className="task">{data.nextTask.task}</p>
           <p className="reason">{data.nextTask.reason}</p>
+        </div>
+      )}
+
+      {summary.total > 0 && (
+        <div className="card">
+          <h2>진행 요약</h2>
+          <p className="progress-headline">
+            전체 {summary.total}개 기능 중 <b>완성 {summary.done}개</b>
+            {summary.counts.NEEDS_VERIFICATION > 0 &&
+              ` · 검증만 남은 기능 ${summary.counts.NEEDS_VERIFICATION}개`}
+          </p>
+          <SegBar summary={summary} />
+          <SummaryChips summary={summary} />
         </div>
       )}
 

@@ -1,7 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import type { FeatureNodeDto, ProjectDto } from '@vibetrack/shared';
+import {
+  displayStatusActionKo,
+  displayStatusDescriptionKo,
+  type FeatureNodeDto,
+  type ProjectDto,
+} from '@vibetrack/shared';
 import { useApproveFeatureMap, useFeatureDetail, useFeatureTree } from '../api/hooks.js';
 import { AxisBadges, StatusBadge } from '../components/StatusBadge.js';
+import { StatusLegend, SubtreeRollup } from '../components/StatusSummary.js';
 
 function TreeNodes({
   nodes,
@@ -36,7 +42,11 @@ function TreeNodes({
             >
               {node.name}
             </span>
-            <StatusBadge status={node.displayStatus} />
+            {node.lifecycle === 'ACTIVE' && node.children.length > 0 ? (
+              <SubtreeRollup node={node} />
+            ) : (
+              <StatusBadge status={node.displayStatus} />
+            )}
           </div>
           <TreeNodes nodes={node.children} selectedId={selectedId} onSelect={onSelect} />
         </li>
@@ -93,6 +103,16 @@ function FeatureDetail({ project, featureId }: { project: ProjectDto; featureId:
           implementationStatus={feature.node.implementationStatus}
           verificationStatus={feature.node.verificationStatus}
         />
+      </div>
+
+      <div className="alert info" style={{ fontSize: 13.5 }}>
+        {displayStatusDescriptionKo[feature.node.displayStatus]}
+        {displayStatusActionKo[feature.node.displayStatus] && (
+          <>
+            {' '}
+            → {displayStatusActionKo[feature.node.displayStatus]}
+          </>
+        )}
       </div>
 
       {files.length > 0 && (
@@ -241,6 +261,7 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
       <p className="page-desc">
         파일 트리가 아니라 사용자 관점의 기능 트리입니다. 구조 변경은 승인을 거쳐야 반영됩니다.
       </p>
+      <StatusLegend />
 
       {draftMode && (
         <div className="card" style={{ borderColor: 'var(--purple)', borderWidth: 2 }}>

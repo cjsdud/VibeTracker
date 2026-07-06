@@ -4,6 +4,7 @@ import {
   deriveDisplayStatus,
   proposeStructureChangeInput,
   recordWorkUpdateInput,
+  summarizeFeatures,
 } from '../src/index.js';
 
 describe('deriveDisplayStatus', () => {
@@ -77,6 +78,58 @@ describe('deriveDisplayStatus', () => {
         verificationStatus: 'MANUAL_VERIFIED',
       }),
     ).toBe('IMPLEMENTED');
+  });
+
+  it('구현됐지만 검증이 없으면 "완성"이 아니라 "검증 필요"다', () => {
+    // bootstrap 직후 흔한 상태: 구현됨 + 확인 없음 → 사용자에게 "부족한 부분"으로 보여야 한다
+    expect(
+      deriveDisplayStatus({
+        lifecycle: 'ACTIVE',
+        implementationStatus: 'IMPLEMENTED',
+        verificationStatus: 'UNKNOWN',
+      }),
+    ).toBe('NEEDS_VERIFICATION');
+    // 일부 구현은 검증 여부와 무관하게 "작업 중"
+    expect(
+      deriveDisplayStatus({
+        lifecycle: 'ACTIVE',
+        implementationStatus: 'PARTIAL',
+        verificationStatus: 'NEEDS_VERIFICATION',
+      }),
+    ).toBe('IN_PROGRESS');
+  });
+});
+
+describe('summarizeFeatures (진행 요약)', () => {
+  const leaf = (displayStatus: string, lifecycle = 'ACTIVE') =>
+    ({ displayStatus, lifecycle, children: [] }) as never;
+
+  it('leaf 기능만 세고 영역(부모)과 종료 기능은 제외한다', () => {
+    const summary = summarizeFeatures([
+      {
+        displayStatus: 'IMPLEMENTED',
+        lifecycle: 'ACTIVE',
+        children: [leaf('IMPLEMENTED'), leaf('NEEDS_VERIFICATION'), leaf('RETIRED', 'RETIRED')],
+      } as never,
+      leaf('PLANNED'),
+      leaf('RETIRED', 'RETIRED'),
+    ]);
+    expect(summary.total).toBe(3);
+    expect(summary.done).toBe(1);
+    expect(summary.counts.NEEDS_VERIFICATION).toBe(1);
+    expect(summary.counts.PLANNED).toBe(1);
+  });
+
+  it('자식이 전부 종료된 부모는 leaf로 취급한다', () => {
+    const summary = summarizeFeatures([
+      {
+        displayStatus: 'IMPLEMENTED',
+        lifecycle: 'ACTIVE',
+        children: [leaf('RETIRED', 'RETIRED')],
+      } as never,
+    ]);
+    expect(summary.total).toBe(1);
+    expect(summary.done).toBe(1);
   });
 });
 
