@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import type { ProjectDto, UserDto } from '@vibetrack/shared';
 import { useInbox, useLogout } from '../api/hooks.js';
 
@@ -10,10 +10,52 @@ const tabs = [
   { to: '/settings', label: '연결/설정', icon: '⚙️' },
 ];
 
-export function Layout({ project, user }: { project: ProjectDto; user: UserDto }) {
+export function Layout({
+  project,
+  projects,
+  onSelectProject,
+  user,
+}: {
+  project: ProjectDto;
+  projects: ProjectDto[];
+  onSelectProject: (id: string) => void;
+  user: UserDto;
+}) {
+  const navigate = useNavigate();
   const inbox = useInbox(project.id);
   const logout = useLogout();
   const openCount = inbox.data?.items.length ?? 0;
+
+  const projectSelector = (
+    <select
+      value={project.id}
+      onChange={(e) => {
+        if (e.target.value === '__new') {
+          navigate('/projects/new');
+          return;
+        }
+        onSelectProject(e.target.value);
+        navigate('/');
+      }}
+      style={{
+        width: '100%',
+        padding: '8px 10px',
+        borderRadius: 8,
+        border: '1px solid var(--border)',
+        fontWeight: 700,
+        marginBottom: 8,
+        background: 'var(--surface)',
+        color: 'var(--text)',
+      }}
+    >
+      {projects.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      ))}
+      <option value="__new">＋ 새 프로젝트 만들기</option>
+    </select>
+  );
 
   const navItems = tabs.map((tab) => (
     <NavLink
@@ -33,9 +75,7 @@ export function Layout({ project, user }: { project: ProjectDto; user: UserDto }
         <div className="brand">
           Vibe<span>Track</span>
         </div>
-        <div className="nav-item" style={{ fontWeight: 700, color: 'var(--text)' }}>
-          {project.name}
-        </div>
+        {projectSelector}
         <nav>{navItems}</nav>
         <div className="spacer" />
         <div className="user-row">

@@ -29,6 +29,7 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
   const tokens = useMcpTokens(project?.id ?? null);
   const createToken = useCreateToken(project?.id ?? '');
   const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [repoSkipped, setRepoSkipped] = useState(false);
   const setup = useClaudeSetup(project?.id ?? null);
   const tree = useFeatureTree(project?.id ?? null);
 
@@ -37,11 +38,12 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
   const featureCount = tree.data?.tree.length ?? 0;
   const hasFeatures = featureCount > 0;
 
-  if (project && hasRepo && hasToken && hasFeatures) {
+  // 저장소는 나중에 연결해도 핵심 루프(Claude Code 기록)는 동작한다
+  if (project && hasToken && hasFeatures) {
     return <Navigate to="/features" replace />;
   }
 
-  const step = !project ? 1 : !hasRepo ? 2 : !hasToken ? 3 : !hasFeatures ? 4 : 5;
+  const step = !project ? 1 : !hasRepo && !repoSkipped ? 2 : !hasToken ? 3 : !hasFeatures ? 4 : 5;
 
   const steps = [
     '프로젝트 만들기',
@@ -139,6 +141,17 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
                 {connectRepo.error.message}
               </div>
             )}
+            <button
+              className="btn"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
+              onClick={() => setRepoSkipped(true)}
+            >
+              나중에 연결하기 (건너뛰기)
+            </button>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
+              GitHub App이 아직 설정되지 않았다면 건너뛰세요. Claude Code 작업 기록은 저장소 연결
+              없이도 동작하며, 커밋/CI 검증만 나중에 활성화됩니다.
+            </p>
           </>
         )}
 
