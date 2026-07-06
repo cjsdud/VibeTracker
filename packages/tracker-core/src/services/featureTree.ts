@@ -77,26 +77,25 @@ export async function createTreeVersion(
 }
 
 /**
- * bootstrap_project_map: Claude Code가 만든 초기 기능 지도 초안을 등록한다.
+ * bootstrap_project_map: Claude Code가 만든 기능 지도 초안을 등록한다.
  * - 무조건 DRAFT로 생성한다. 승인은 웹에서만 가능하다.
- * - ACTIVE 트리가 이미 있으면 거부한다 (구조 변경은 propose_structure_change로).
- * - DRAFT만 있으면 재부트스트랩으로 간주하고 기존 초안을 대체한다.
+ * - 기존 DRAFT 초안이 있으면 새 초안으로 대체한다 (승인된 적 없는 데이터만 삭제).
+ * - 승인된 ACTIVE 지도가 이미 있어도 등록할 수 있다(지도 교체 플로우):
+ *   초안은 기존 지도와 나란히 존재하고, 사용자가 승인하는 시점에 기존 ACTIVE
+ *   지도 전체가 RETIRED로 종료되며 초안이 새 지도가 된다. 승인 전까지는
+ *   아무것도 바뀌지 않으므로 "구조 변경은 사용자 승인 필요" 원칙이 유지된다.
  */
 export async function bootstrapProjectMap(
   prisma: PrismaClient,
   params: { input: BootstrapProjectMapInput; source?: WorkUpdateSource },
-): Promise<{ tree: FeatureNodeDto[]; draftCount: number }> {
+): Promise<{ tree: FeatureNodeDto[]; draftCount: number; replacesActiveMap: boolean }> {
   const { input } = params;
 
   return prisma.$transaction(async (tx) => {
     const activeCount = await tx.featureNode.count({
       where: { projectId: input.projectId, lifecycle: 'ACTIVE' },
     });
-    if (activeCount > 0) {
-      throw new ConflictError(
-        '이미 승인된 기능 트리가 있습니다. 구조 변경은 propose_structure_change 도구를 사용하세요.',
-      );
-    }
+    const replacesActiveMap = activeCount > 0;
 
     // 재부트스트랩: 기존 초안 제거 (승인된 적 없는 데이터만 삭제된다)
     await tx.featureNode.deleteMany({ where: { projectId: input.projectId, lifecycle: 'DRAFT' } });
@@ -178,25 +177,39 @@ export async function bootstrapProjectMap(
       data: {
         projectId: input.projectId,
         type: 'FEATURE_MAP_REVIEW',
-        title: `초기 기능 지도 검토 (기능 ${draftCount}개)`,
-        detail: { draftCount, baseCommitSha: input.baseCommitSha ?? null },
+        title: replacesActiveMap
+          ? `기능 지도 교체 검토 (기능 ${draftCount}개) — 승인하면 기존 지도는 종료됩니다`
+          : `초기 기능 지도 검토 (기능 ${draftCount}개)`,
+        detail: {
+          draftCount,
+          baseCommitSha: input.baseCommitSha ?? null,
+          replacesActiveMap,
+        },
       },
     });
     await writeAudit(tx, {
       projectId: input.projectId,
       action: 'feature_map.bootstrapped',
-      detail: { draftCount, baseCommitSha: input.baseCommitSha ?? null },
+      detail: { draftCount, baseCommitSha: input.baseCommitSha ?? null, replacesActiveMap },
     });
 
-    return { tree: buildFeatureTree(await getFeatureNodes(tx, input.projectId)), draftCount };
+    return {
+      tree: buildFeatureTree(await getFeatureNodes(tx, input.projectId)),
+      draftCount,
+      replacesActiveMap,
+    };
   });
 }
 
-/** 초기 기능 지도 승인: DRAFT 전체 → ACTIVE + 트리 버전 기록 */
+/**
+ * 기능 지도 승인: DRAFT 전체 → ACTIVE + 트리 버전 기록.
+ * 기존 ACTIVE 지도가 있으면(지도 교체) 그 지도 전체를 RETIRED로 종료한다 —
+ * 삭제가 아니므로 기존 작업 기록/증거/타임라인은 종료된 노드에 그대로 남는다.
+ */
 export async function approveInitialFeatureMap(
   prisma: PrismaClient,
   params: { projectId: string; userId: string },
-): Promise<{ tree: FeatureNodeDto[]; version: number }> {
+): Promise<{ tree: FeatureNodeDto[]; version: number; retiredCount: number }> {
   return prisma.$transaction(async (tx) => {
     const draftCount = await tx.featureNode.count({
       where: { projectId: params.projectId, lifecycle: 'DRAFT' },
@@ -204,6 +217,11 @@ export async function approveInitialFeatureMap(
     if (draftCount === 0) {
       throw new ConflictError('승인할 초안 기능 지도가 없습니다.');
     }
+    // 지도 교체: 이전 지도는 종료 처리 (기록 보존)
+    const retired = await tx.featureNode.updateMany({
+      where: { projectId: params.projectId, lifecycle: 'ACTIVE' },
+      data: { lifecycle: 'RETIRED', retiredAt: new Date() },
+    });
     await tx.featureNode.updateMany({
       where: { projectId: params.projectId, lifecycle: 'DRAFT' },
       data: { lifecycle: 'ACTIVE' },
@@ -221,11 +239,12 @@ export async function approveInitialFeatureMap(
       projectId: params.projectId,
       userId: params.userId,
       action: 'feature_map.approved',
-      detail: { approvedCount: draftCount, version: version.version },
+      detail: { approvedCount: draftCount, retiredCount: retired.count, version: version.version },
     });
     return {
       tree: buildFeatureTree(await getFeatureNodes(tx, params.projectId)),
       version: version.version,
+      retiredCount: retired.count,
     };
   });
 }

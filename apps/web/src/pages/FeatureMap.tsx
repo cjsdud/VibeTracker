@@ -230,9 +230,10 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
   const approve = useApproveFeatureMap(project.id);
 
   const nodes = tree.data?.tree ?? [];
-  const hasDraft = (list: FeatureNodeDto[]): boolean =>
-    list.some((n) => n.lifecycle === 'DRAFT' || hasDraft(n.children));
-  const draftMode = hasDraft(nodes);
+  const hasLifecycle = (list: FeatureNodeDto[], lifecycle: string): boolean =>
+    list.some((n) => n.lifecycle === lifecycle || hasLifecycle(n.children, lifecycle));
+  const draftMode = hasLifecycle(nodes, 'DRAFT');
+  const replaceMode = draftMode && hasLifecycle(nodes, 'ACTIVE');
 
   return (
     <>
@@ -243,11 +244,11 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
 
       {draftMode && (
         <div className="card" style={{ borderColor: 'var(--purple)', borderWidth: 2 }}>
-          <h2>초기 기능 지도 검토</h2>
+          <h2>{replaceMode ? '새 기능 지도 검토 (교체)' : '초기 기능 지도 검토'}</h2>
           <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>
-            Claude Code가 만든 기능 지도 초안입니다. 승인하면 활성화되고 이후 작업이 자동으로
-            추적됩니다. 마음에 들지 않으면 Claude Code에서 bootstrap을 다시 실행해 초안을 교체할 수
-            있습니다.
+            {replaceMode
+              ? 'Claude Code가 새 기능 지도 초안을 등록했습니다. 승인하면 기존 지도 전체가 종료 처리되고(기록은 보존) 이 초안이 새 지도가 됩니다.'
+              : 'Claude Code가 만든 기능 지도 초안입니다. 승인하면 활성화되고 이후 작업이 자동으로 추적됩니다. 마음에 들지 않으면 Claude Code에서 bootstrap을 다시 실행해 초안을 교체할 수 있습니다.'}
           </p>
           <button
             className="btn primary"

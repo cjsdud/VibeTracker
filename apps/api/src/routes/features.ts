@@ -90,7 +90,7 @@ export async function featureRoutes(
     const { projectId } = request.params as { projectId: string };
     await requireProjectAccess(prisma, projectId, user.id);
     const result = await approveInitialFeatureMap(prisma, { projectId, userId: user.id });
-    return { tree: result.tree, version: result.version };
+    return { tree: result.tree, version: result.version, retiredCount: result.retiredCount };
   });
 
   app.get('/api/projects/:projectId/proposals', async (request) => {

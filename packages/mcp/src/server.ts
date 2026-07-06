@@ -43,7 +43,12 @@ function errorResult(error: unknown) {
       .join('; ');
   } else {
     console.error('[mcp] tool error', error);
-    message = '요청을 처리하지 못했습니다. 입력을 확인하고 다시 시도하세요.';
+    const code = (error as { code?: string }).code;
+    // Prisma 오류(P2028 트랜잭션 타임아웃 등)는 입력 문제와 구분해 알려준다
+    message =
+      typeof code === 'string' && code.startsWith('P2')
+        ? `데이터베이스 처리 중 오류가 발생했습니다 (${code}). 잠시 후 같은 요청을 다시 시도하세요.`
+        : '요청을 처리하지 못했습니다. 입력을 확인하고 다시 시도하세요.';
   }
   return {
     content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],
@@ -112,9 +117,9 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
   server.registerTool(
     'bootstrap_project_map',
     {
-      title: '초기 기능 지도 등록',
+      title: '기능 지도 등록 (초기/교체)',
       description:
-        '저장소 분석 후 초기 기능 지도 초안을 등록한다. 파일 트리가 아니라 사용자 관점의 기능 트리를 등록하라. 기능마다 파일/라우트/API/테스트 증거를 연결하라. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다.',
+        '저장소 분석 후 기능 지도 초안을 등록한다. 파일 트리가 아니라 사용자 관점의 기능 트리를 등록하라. 기능마다 파일/라우트/API/테스트 증거를 연결하라. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다. 이미 승인된 지도가 있어도 호출할 수 있다 — 사용자가 새 초안을 승인하는 순간 기존 지도 전체가 종료(RETIRED)되고 새 지도로 교체된다. 개별 기능 추가/이름 변경 같은 부분 수정은 propose_structure_change를 사용하라.',
       inputSchema: bootstrapProjectMapInput.shape,
     },
     async (args) => {
@@ -125,8 +130,10 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
         return textResult({
           status: 'DRAFT_CREATED',
           draftCount: result.draftCount,
-          message:
-            '기능 지도 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 검토·승인해야 활성화됩니다. 사용자에게 승인을 요청하세요.',
+          replacesActiveMap: result.replacesActiveMap,
+          message: result.replacesActiveMap
+            ? '기능 지도 교체 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 승인하면 기존 지도는 종료되고 이 초안이 새 지도가 됩니다. 사용자에게 승인을 요청하세요.'
+            : '기능 지도 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 검토·승인해야 활성화됩니다. 사용자에게 승인을 요청하세요.',
           tree: result.tree,
         });
       } catch (error) {
