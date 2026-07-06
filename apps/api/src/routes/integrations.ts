@@ -205,6 +205,26 @@ export async function integrationRoutes(
         installationId: z.string().nullable().optional(),
       })
       .parse(request.body);
+
+    // GitHub App이 설정된 환경에서는 사용자가 실제로 접근 가능한 저장소만 연결할 수 있다.
+    // (webhook이 fullName으로 프로젝트를 찾으므로, 임의 저장소 연결은 타인 이벤트 수신으로 이어진다)
+    if (github.isConfigured()) {
+      const installation = body.installationId
+        ? await prisma.githubInstallation.findFirst({
+            where: { id: body.installationId, userId: user.id },
+          })
+        : null;
+      if (!installation) {
+        throw new ValidationError(
+          '본인 계정의 GitHub App 설치를 통해서만 저장소를 연결할 수 있습니다.',
+        );
+      }
+      const accessible = await github.listInstallationRepos(Number(installation.installationId));
+      if (!accessible.some((r) => r.fullName === `${body.owner}/${body.name}`)) {
+        throw new ValidationError('해당 저장소에 대한 접근 권한을 확인할 수 없습니다.');
+      }
+    }
+
     const repository = await prisma.repository.upsert({
       where: { projectId },
       update: {

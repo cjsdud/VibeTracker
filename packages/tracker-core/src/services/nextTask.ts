@@ -93,23 +93,23 @@ export async function getNextTask(db: Db, projectId: string): Promise<NextTaskDt
     };
   }
 
-  // 5. 미해결 질문이 많은 기능
+  // 5. 미해결 질문이 많은 기능 (상위 그룹이 종료/초안 기능이면 다음 그룹으로 넘어간다)
   const questionGroups = await db.openQuestion.groupBy({
     by: ['featureNodeId'],
     where: { projectId, status: 'OPEN', featureNodeId: { not: null } },
     _count: { id: true },
     orderBy: { _count: { id: 'desc' } },
-    take: 1,
+    take: 5,
   });
-  const topQuestion = questionGroups[0];
-  if (topQuestion?.featureNodeId && topQuestion._count.id > 0) {
+  for (const group of questionGroups) {
+    if (!group.featureNodeId || group._count.id === 0) continue;
     const feature = await db.featureNode.findFirst({
-      where: { id: topQuestion.featureNodeId, projectId, lifecycle: 'ACTIVE' },
+      where: { id: group.featureNodeId, projectId, lifecycle: 'ACTIVE' },
     });
     if (feature) {
       return {
         kind: 'RESOLVE_OPEN_QUESTIONS',
-        task: `"${feature.name}" 기능의 미해결 질문 ${topQuestion._count.id}개를 해결하세요`,
+        task: `"${feature.name}" 기능의 미해결 질문 ${group._count.id}개를 해결하세요`,
         reason: '미해결 질문이 가장 많이 쌓인 기능입니다.',
         featureIds: [feature.id],
         instruction: `get_feature_context로 기능 "${feature.name}"(${feature.id})의 미해결 질문을 읽고, 코드 확인이나 사용자 질문으로 답을 정한 뒤 record_work_update에 결과를 기록하세요.`,

@@ -158,7 +158,7 @@ export async function getProjectContext(
     ]);
 
   const focusFeatures: FeatureDetailDto[] = [];
-  for (const featureId of focusFeatureIds ?? []) {
+  for (const featureId of [...new Set(focusFeatureIds ?? [])]) {
     try {
       focusFeatures.push(await getFeatureContext(db, projectId, featureId));
     } catch {

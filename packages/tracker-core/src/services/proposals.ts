@@ -48,10 +48,21 @@ export async function createProposal(
       }
     }
     if (input.mergeIntoFeatureId) {
-      await requireFeature(tx, input.projectId, input.mergeIntoFeatureId);
+      const into = await requireFeature(tx, input.projectId, input.mergeIntoFeatureId);
+      if (into.lifecycle === 'RETIRED') {
+        throw new ValidationError('이미 종료된 기능으로는 병합할 수 없습니다.');
+      }
     }
     if (input.proposedNode?.parentFeatureId) {
       await requireFeature(tx, input.projectId, input.proposedNode.parentFeatureId);
+    }
+    for (const node of input.proposedNodes ?? []) {
+      if (node.parentFeatureId) {
+        await requireFeature(tx, input.projectId, node.parentFeatureId);
+      }
+    }
+    if (input.newParentFeatureId) {
+      await requireFeature(tx, input.projectId, input.newParentFeatureId);
     }
 
     const title =
@@ -108,17 +119,19 @@ interface ProposalPayload {
   retireSource: boolean | null;
 }
 
+/** candidateId가 nodeId 자신이거나 그 하위(자손)이면 거부한다 — 순환 방지의 단일 관문 */
 async function assertNotDescendant(
   db: Db,
   projectId: string,
   nodeId: string,
   candidateParentId: string,
+  message = '기능을 자기 자신의 하위로 이동할 수 없습니다.',
 ): Promise<void> {
   let current: string | null = candidateParentId;
   const seen = new Set<string>();
   while (current) {
     if (current === nodeId) {
-      throw new ValidationError('기능을 자기 자신의 하위로 이동할 수 없습니다.');
+      throw new ValidationError(message);
     }
     if (seen.has(current)) break;
     seen.add(current);
@@ -137,6 +150,10 @@ async function createNodeFromProposal(
   fallbackParentId: string | null,
 ): Promise<FeatureNode> {
   const parentId = node.parentFeatureId !== undefined ? node.parentFeatureId : fallbackParentId;
+  // 승인 시점에 부모의 존재와 프로젝트 소속을 반드시 재검증한다 (교차 프로젝트/오타 방지)
+  if (parentId) {
+    await requireFeature(db, projectId, parentId);
+  }
   const siblingCount = await db.featureNode.count({ where: { projectId, parentId } });
   return db.featureNode.create({
     data: {
@@ -168,7 +185,13 @@ export async function approveProposal(
       where: { id: params.proposalId, projectId: params.projectId },
     });
     if (!proposal) throw new NotFoundError('제안을 찾을 수 없습니다.');
-    if (proposal.status !== 'PENDING') {
+    // 동시 승인(더블클릭/다중 탭) 방지: PENDING인 경우에만 원자적으로 선점한다.
+    // 경쟁 트랜잭션은 행 잠금 대기 후 count 0을 받아 Conflict로 끝난다.
+    const claimed = await tx.changeProposal.updateMany({
+      where: { id: proposal.id, status: 'PENDING' },
+      data: { status: 'APPROVED', decidedAt: new Date(), decidedByUserId: params.userId },
+    });
+    if (claimed.count !== 1) {
       throw new ConflictError('이미 처리된 제안입니다.');
     }
     const payload = proposal.payload as unknown as ProposalPayload;
@@ -214,10 +237,24 @@ export async function approveProposal(
         let into: FeatureNode;
         if (payload.mergeIntoFeatureId) {
           into = await requireFeature(tx, params.projectId, payload.mergeIntoFeatureId);
+          if (into.lifecycle === 'RETIRED') {
+            throw new ValidationError('이미 종료된 기능으로는 병합할 수 없습니다.');
+          }
         } else if (payload.proposedNode) {
           into = await createNodeFromProposal(tx, params.projectId, payload.proposedNode, null);
         } else {
           throw new ValidationError('병합 대상 정보가 없습니다.');
+        }
+        // 병합 노드가 원본의 하위에 있으면 자식 이관 시 순환이 생겨 서브트리가 사라진다
+        for (const source of targets) {
+          if (source.id === into.id) continue;
+          await assertNotDescendant(
+            tx,
+            params.projectId,
+            source.id,
+            into.id,
+            '병합 대상 기능이 원본 기능의 하위에 있어 병합할 수 없습니다.',
+          );
         }
         for (const source of targets) {
           if (source.id === into.id) continue;
@@ -267,6 +304,11 @@ export async function approveProposal(
           });
         }
         if (retireSource) {
+          // 원본의 기존 자식이 종료된 부모 밑에 고립되지 않도록 한 단계 위로 올린다
+          await tx.featureNode.updateMany({
+            where: { parentId: source.id },
+            data: { parentId: source.parentId },
+          });
           await retireNode(tx, source);
         }
         break;
@@ -274,6 +316,16 @@ export async function approveProposal(
       case 'REPLACE': {
         const target = targets[0];
         if (!target || !payload.proposedNode) throw new ValidationError('대체 정보가 없습니다.');
+        // 새 노드의 부모가 대체 대상의 하위이면 자식 이관 시 순환이 생긴다
+        if (payload.proposedNode.parentFeatureId) {
+          await assertNotDescendant(
+            tx,
+            params.projectId,
+            target.id,
+            payload.proposedNode.parentFeatureId,
+            '새 기능의 부모가 대체 대상 기능의 하위에 있어 대체할 수 없습니다.',
+          );
+        }
         const created = await createNodeFromProposal(
           tx,
           params.projectId,
@@ -306,12 +358,7 @@ export async function approveProposal(
     });
     const updated = await tx.changeProposal.update({
       where: { id: proposal.id },
-      data: {
-        status: 'APPROVED',
-        decidedAt: new Date(),
-        decidedByUserId: params.userId,
-        appliedTreeVersionId: version.id,
-      },
+      data: { appliedTreeVersionId: version.id },
     });
     await tx.inboxItem.updateMany({
       where: { changeProposalId: proposal.id, status: 'OPEN' },
@@ -338,11 +385,12 @@ export async function rejectProposal(
       where: { id: params.proposalId, projectId: params.projectId },
     });
     if (!proposal) throw new NotFoundError('제안을 찾을 수 없습니다.');
-    if (proposal.status !== 'PENDING') throw new ConflictError('이미 처리된 제안입니다.');
-    const updated = await tx.changeProposal.update({
-      where: { id: proposal.id },
+    const claimed = await tx.changeProposal.updateMany({
+      where: { id: proposal.id, status: 'PENDING' },
       data: { status: 'REJECTED', decidedAt: new Date(), decidedByUserId: params.userId },
     });
+    if (claimed.count !== 1) throw new ConflictError('이미 처리된 제안입니다.');
+    const updated = await tx.changeProposal.findUniqueOrThrow({ where: { id: proposal.id } });
     await tx.inboxItem.updateMany({
       where: { changeProposalId: proposal.id, status: 'OPEN' },
       data: {

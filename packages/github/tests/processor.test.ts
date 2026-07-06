@@ -234,6 +234,46 @@ describe('GitHub event processor', () => {
     ).toBe(1);
   });
 
+  it('부분 실패 후 재시도(FAILED → 재처리)해도 Inbox/검증 기록이 중복되지 않는다', async () => {
+    const { project, feature } = await setup();
+    await prisma.workUpdate.create({
+      data: {
+        projectId: project.id,
+        source: 'MCP',
+        summary: '작업',
+        gitHeadSha: SHA,
+        features: { create: [{ featureNodeId: feature.id }] },
+      },
+    });
+    const push = await insertEvent(project.id, 'push', {
+      ref: 'refs/heads/main',
+      commits: [{ id: SHA, message: 'misc', added: ['scripts/x.ts'], modified: [], removed: [] }],
+    });
+    const check = await insertEvent(project.id, 'check_run', {
+      action: 'completed',
+      check_run: { name: 'CI / test', head_sha: SHA, conclusion: 'failure' },
+    });
+    await processGithubEvent(prisma, push.id);
+    await processGithubEvent(prisma, check.id);
+    // 마지막 단계에서 실패했다고 가정하고 상태를 되돌린 뒤 재시도
+    await prisma.githubEvent.updateMany({
+      where: { id: { in: [push.id, check.id] } },
+      data: { status: 'FAILED' },
+    });
+    await processGithubEvent(prisma, push.id);
+    await processGithubEvent(prisma, check.id);
+
+    expect(
+      await prisma.inboxItem.count({ where: { projectId: project.id, type: 'UNTRACKED_CHANGE' } }),
+    ).toBe(1);
+    expect(
+      await prisma.inboxItem.count({ where: { projectId: project.id, type: 'TEST_FAILURE' } }),
+    ).toBe(1);
+    expect(
+      await prisma.verificationRun.count({ where: { projectId: project.id, source: 'CI' } }),
+    ).toBe(1);
+  });
+
   it('프로젝트에 매핑되지 않은 이벤트는 SKIPPED 처리한다', async () => {
     const event = await insertEvent(null, 'push', { commits: [] });
     await processGithubEvent(prisma, event.id);

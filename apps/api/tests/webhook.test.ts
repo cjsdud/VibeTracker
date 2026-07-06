@@ -47,7 +47,20 @@ describe('GitHub webhook endpoint', () => {
     expect(await prisma.githubEvent.count()).toBe(0);
   });
 
+  async function connectRepo(fullName: string, suffix = '1') {
+    const [owner, name] = fullName.split('/') as [string, string];
+    const user = await prisma.user.create({
+      data: { name: `사용자${suffix}`, email: `webhook${suffix}@test.local` },
+    });
+    const project = await prisma.project.create({ data: { userId: user.id, name: `P${suffix}` } });
+    await prisma.repository.create({
+      data: { projectId: project.id, owner, name, fullName },
+    });
+    return project;
+  }
+
   it('유효한 서명은 202로 저장하고 Job을 만든다', async () => {
+    const project = await connectRepo('demo/review-insight');
     const body = JSON.stringify({
       repository: { full_name: 'demo/review-insight' },
       ref: 'refs/heads/main',
@@ -55,11 +68,14 @@ describe('GitHub webhook endpoint', () => {
     });
     const response = await postWebhook(app, { body, signature: sign(body) });
     expect(response.statusCode).toBe(202);
-    expect(await prisma.githubEvent.count()).toBe(1);
+    const events = await prisma.githubEvent.findMany();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.projectId).toBe(project.id);
     expect(await prisma.job.count({ where: { type: 'process_github_event' } })).toBe(1);
   });
 
   it('같은 delivery ID는 중복 저장/처리되지 않는다', async () => {
+    await connectRepo('a/b');
     const body = JSON.stringify({ repository: { full_name: 'a/b' }, commits: [] });
     const first = await postWebhook(app, { body, signature: sign(body), deliveryId: 'dup-1' });
     expect(first.statusCode).toBe(202);
@@ -68,6 +84,31 @@ describe('GitHub webhook endpoint', () => {
     expect(second.json()).toMatchObject({ duplicate: true });
     expect(await prisma.githubEvent.count()).toBe(1);
     expect(await prisma.job.count()).toBe(1);
+  });
+
+  it('같은 저장소를 연결한 프로젝트가 여럿이면 모두에게 이벤트가 전달된다', async () => {
+    const p1 = await connectRepo('octo/app', '1');
+    const p2 = await connectRepo('octo/app', '2');
+    const body = JSON.stringify({ repository: { full_name: 'octo/app' }, commits: [] });
+    const response = await postWebhook(app, { body, signature: sign(body), deliveryId: 'fan-1' });
+    expect(response.statusCode).toBe(202);
+    const events = await prisma.githubEvent.findMany();
+    expect(events.map((e) => e.projectId).sort()).toEqual([p1.id, p2.id].sort());
+    expect(await prisma.job.count()).toBe(2);
+    // 재전송도 프로젝트 단위로 중복 방지된다
+    const again = await postWebhook(app, { body, signature: sign(body), deliveryId: 'fan-1' });
+    expect(again.statusCode).toBe(200);
+    expect(await prisma.githubEvent.count()).toBe(2);
+  });
+
+  it('연결되지 않은 저장소 이벤트는 기록만 남고 Job은 생기지 않는다', async () => {
+    const body = JSON.stringify({ repository: { full_name: 'nobody/unknown' }, commits: [] });
+    const first = await postWebhook(app, { body, signature: sign(body), deliveryId: 'orphan-1' });
+    expect(first.statusCode).toBe(202);
+    expect(await prisma.job.count()).toBe(0);
+    const second = await postWebhook(app, { body, signature: sign(body), deliveryId: 'orphan-1' });
+    expect(second.statusCode).toBe(200);
+    expect(await prisma.githubEvent.count()).toBe(1);
   });
 
   it('secret 미설정이면 503을 반환한다', async () => {

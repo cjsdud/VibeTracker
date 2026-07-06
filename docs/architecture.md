@@ -72,9 +72,13 @@ Job worker ──poll──▶ Job 테이블 ──▶ packages/github processor
 - Endpoint: `POST /api/github/webhook`
 - 처리 순서:
   1. **원문(raw body) 기준 `X-Hub-Signature-256` HMAC 검증** (`GITHUB_WEBHOOK_SECRET`)
-  2. `X-GitHub-Delivery` ID로 **중복 수신 방지** (`GithubEvent.deliveryId` unique)
-  3. `GithubEvent` 행으로 빠르게 저장하고 `Job`을 enqueue한 뒤 즉시 202 응답
-  4. Job worker가 비동기로 처리
+  2. `X-GitHub-Delivery` ID로 **중복 수신 방지** (`@@unique([deliveryId, projectId])` —
+     같은 저장소를 연결한 프로젝트가 여럿이면 프로젝트별로 한 번씩 전달된다)
+  3. `GithubEvent` 저장과 `Job` enqueue를 **한 트랜잭션**으로 묶어 빠르게 저장 후 즉시 202 응답
+  4. Job worker가 비동기로 처리 (Inbox/검증 기록 생성은 재시도에 대해 멱등)
+- 저장소 연결(`POST /github/connect`)은 GitHub App이 설정된 환경에서
+  **사용자 본인의 설치가 접근 가능한 저장소인지 검증**한다 (임의 슬러그 연결로 타인의
+  이벤트를 수신하는 것을 차단).
 - 수신 이벤트: `push`, `pull_request`, `check_run`, `workflow_run`, `installation`
 
 ### 이벤트 처리 규칙 (packages/github processor)

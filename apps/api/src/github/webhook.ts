@@ -64,33 +64,60 @@ export async function githubWebhookRoutes(
         });
       }
 
-      // 저장소 → 프로젝트 매핑
+      // 저장소 → 프로젝트 매핑. 같은 저장소를 연결한 프로젝트가 여럿이면 전부에 전달한다.
       const fullName = (payload as WebhookRepositoryPayload).repository?.full_name;
-      const repository = fullName
-        ? await prisma.repository.findFirst({ where: { fullName } })
-        : null;
+      const repositories = fullName
+        ? await prisma.repository.findMany({ where: { fullName } })
+        : [];
 
-      // delivery ID 중복 방지 (GitHub 재전송 대응)
-      try {
-        const event = await prisma.githubEvent.create({
+      if (repositories.length === 0) {
+        // 어떤 프로젝트와도 연결되지 않은 이벤트도 기록은 남긴다 (projectId null → SKIPPED 처리)
+        const existing = await prisma.githubEvent.findFirst({
+          where: { deliveryId, projectId: null },
+        });
+        if (existing) return reply.status(200).send({ ok: true, duplicate: true });
+        await prisma.githubEvent.create({
           data: {
             deliveryId,
             eventType,
             action: typeof payload.action === 'string' ? payload.action : null,
             payload: payload as Prisma.InputJsonValue,
-            projectId: repository?.projectId ?? null,
+            projectId: null,
           },
         });
-        await enqueueJob(prisma, 'process_github_event', { githubEventId: event.id });
-      } catch (error) {
-        const code = (error as { code?: string }).code;
-        if (code === 'P2002') {
-          return reply.status(200).send({ ok: true, duplicate: true });
-        }
-        throw error;
+        return reply.status(202).send({ ok: true, matched: 0 });
       }
 
-      return reply.status(202).send({ ok: true });
+      // delivery ID는 프로젝트 단위로 중복 방지 (GitHub 재전송 대응).
+      // 이벤트 저장과 Job enqueue는 한 트랜잭션으로 묶어 고아 이벤트를 막는다.
+      let duplicates = 0;
+      for (const repository of repositories) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            const event = await tx.githubEvent.create({
+              data: {
+                deliveryId,
+                eventType,
+                action: typeof payload.action === 'string' ? payload.action : null,
+                payload: payload as Prisma.InputJsonValue,
+                projectId: repository.projectId,
+              },
+            });
+            await enqueueJob(tx, 'process_github_event', { githubEventId: event.id });
+          });
+        } catch (error) {
+          const code = (error as { code?: string }).code;
+          if (code === 'P2002') {
+            duplicates += 1;
+            continue;
+          }
+          throw error;
+        }
+      }
+      if (duplicates === repositories.length) {
+        return reply.status(200).send({ ok: true, duplicate: true });
+      }
+      return reply.status(202).send({ ok: true, matched: repositories.length });
     });
   });
 }

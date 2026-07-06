@@ -38,13 +38,20 @@ export async function mcpRoutes(app: FastifyInstance, opts: { ctx: AppContext })
     });
 
     reply.hijack();
+    // stateless 모드: 응답이 끝나면(정상/오류/클라이언트 중단 모두) 인스턴스를 정리한다.
+    // close 리스너는 handleRequest 이전에 등록해야 조기 연결 종료를 잡을 수 있다.
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      void transport.close();
+      void server.close();
+    };
+    reply.raw.on('close', cleanup);
     try {
       await server.connect(transport);
       await transport.handleRequest(request.raw, reply.raw, request.body);
-      request.raw.on('close', () => {
-        void transport.close();
-        void server.close();
-      });
+      cleanup();
     } catch (error) {
       request.log.error({ err: error }, 'MCP 요청 처리 실패');
       if (!reply.raw.headersSent) {
@@ -59,6 +66,7 @@ export async function mcpRoutes(app: FastifyInstance, opts: { ctx: AppContext })
       } else {
         reply.raw.end();
       }
+      cleanup();
     }
   });
 

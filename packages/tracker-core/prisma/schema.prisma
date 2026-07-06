@@ -342,7 +342,8 @@ enum GithubEventStatus {
 model GithubEvent {
   id           String            @id @default(cuid())
   projectId    String?
-  deliveryId   String            @unique
+  // 같은 저장소를 여러 프로젝트가 연결한 경우 delivery 하나가 프로젝트별로 저장된다
+  deliveryId   String
   eventType    String
   action       String?
   payload      Json
@@ -351,11 +352,13 @@ model GithubEvent {
   processedAt  DateTime?
   errorMessage String?
 
-  project  Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  evidence FeatureEvidence[]
+  project    Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence   FeatureEvidence[]
   inboxItems InboxItem[]
 
+  @@unique([deliveryId, projectId])
   @@index([projectId, receivedAt])
+  @@index([deliveryId])
   @@map("github_events")
 }
 

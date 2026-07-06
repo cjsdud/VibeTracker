@@ -157,6 +157,85 @@ describe('structure proposals', () => {
     );
   });
 
+  it('MERGE는 원본의 하위 노드로의 병합(순환)을 거부한다', async () => {
+    const { projectId, userId } = await createUserAndProject(prisma);
+    const parent = await activeFeature(projectId, '부모 기능');
+    const child = await activeFeature(projectId, '자식 기능', parent.id);
+    const other = await activeFeature(projectId, '별도 기능');
+    const proposal = await createProposal(prisma, {
+      input: {
+        projectId,
+        type: 'MERGE',
+        reason: '순환 병합 시도',
+        targetFeatureIds: [parent.id, other.id],
+        mergeIntoFeatureId: child.id,
+      },
+    });
+    await expect(
+      approveProposal(prisma, { projectId, userId, proposalId: proposal.id }),
+    ).rejects.toThrow(/하위에 있어/);
+    // 트리는 변하지 않는다
+    const parentAfter = await prisma.featureNode.findUniqueOrThrow({ where: { id: parent.id } });
+    expect(parentAfter.lifecycle).toBe('ACTIVE');
+  });
+
+  it('종료된 기능으로의 MERGE 제안은 생성 시점에 거부된다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    const a = await activeFeature(projectId, 'A');
+    const b = await activeFeature(projectId, 'B');
+    const retired = await prisma.featureNode.create({
+      data: { projectId, name: '종료됨', lifecycle: 'RETIRED', retiredAt: new Date() },
+    });
+    await expect(
+      createProposal(prisma, {
+        input: {
+          projectId,
+          type: 'MERGE',
+          reason: '잘못된 병합',
+          targetFeatureIds: [a.id, b.id],
+          mergeIntoFeatureId: retired.id,
+        },
+      }),
+    ).rejects.toThrow(/종료된 기능/);
+  });
+
+  it('SPLIT은 원본의 자식을 한 단계 위로 올려 고아를 만들지 않는다', async () => {
+    const { projectId, userId } = await createUserAndProject(prisma);
+    const root = await activeFeature(projectId, '루트');
+    const source = await activeFeature(projectId, '데이터 관리', root.id);
+    const child = await activeFeature(projectId, '가져오기', source.id);
+    const proposal = await createProposal(prisma, {
+      input: {
+        projectId,
+        type: 'SPLIT',
+        reason: '분리',
+        targetFeatureIds: [source.id],
+        proposedNodes: [{ name: '업로드' }, { name: '내보내기' }],
+      },
+    });
+    await approveProposal(prisma, { projectId, userId, proposalId: proposal.id });
+    const childAfter = await prisma.featureNode.findUniqueOrThrow({ where: { id: child.id } });
+    expect(childAfter.parentId).toBe(root.id); // RETIRED 부모 밑에 남지 않는다
+  });
+
+  it('SPLIT의 존재하지 않는/다른 프로젝트의 parentFeatureId는 제안 생성 시점에 거부된다', async () => {
+    const { projectId } = await createUserAndProject(prisma, '1');
+    const other = await createUserAndProject(prisma, '2');
+    const foreign = await activeFeature(other.projectId, '남의 기능');
+    const source = await activeFeature(projectId, '원본');
+    await expect(
+      createProposal(prisma, {
+        input: {
+          projectId,
+          type: 'SPLIT',
+          reason: '교차 프로젝트 부모',
+          targetFeatureIds: [source.id],
+          proposedNodes: [{ name: 'X', parentFeatureId: foreign.id }, { name: 'Y' }],
+        },
+      }),
+    ).rejects.toThrow(/찾을 수 없습니다/);
+  });
+
   it('MOVE는 순환을 거부한다', async () => {
     const { projectId, userId } = await createUserAndProject(prisma);
     const parent = await activeFeature(projectId, '부모');

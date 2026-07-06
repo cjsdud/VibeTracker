@@ -87,6 +87,9 @@ export async function linkUntrackedChangeToFeature(
     }
     if (item.status !== 'OPEN') throw new ConflictError('이미 처리된 항목입니다.');
     const feature = await requireFeature(tx, params.projectId, params.featureId);
+    if (feature.lifecycle === 'RETIRED') {
+      throw new ConflictError('종료된 기능에는 연결할 수 없습니다. 활성 기능을 선택하세요.');
+    }
 
     const detail = (item.detail ?? {}) as {
       changedFiles?: string[];

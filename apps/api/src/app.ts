@@ -30,6 +30,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logger: {
       level: deps.env.NODE_ENV === 'test' ? 'warn' : 'info',
       redact: ['req.headers.authorization', 'req.headers.cookie'],
+      serializers: {
+        // OAuth callback의 code/state 같은 민감 쿼리스트링이 로그에 남지 않도록 잘라낸다
+        req(request: { method?: string; url?: string; ip?: string }) {
+          return {
+            method: request.method,
+            url: (request.url ?? '').split('?')[0],
+            remoteAddress: request.ip,
+          };
+        },
+      },
     },
     trustProxy: true,
   });

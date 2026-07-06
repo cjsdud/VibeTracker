@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ZodError } from 'zod';
 import {
   bootstrapProjectMapInput,
   getFeatureContextInput,
@@ -27,17 +28,22 @@ export interface McpServerContext {
 
 function textResult(payload: unknown) {
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+    content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 1) }],
   };
 }
 
 function errorResult(error: unknown) {
-  const message =
-    error instanceof DomainError
-      ? error.message
-      : '요청을 처리하지 못했습니다. 입력을 확인하고 다시 시도하세요.';
-  if (!(error instanceof DomainError)) {
+  let message: string;
+  if (error instanceof DomainError) {
+    message = error.message;
+  } else if (error instanceof ZodError) {
+    // 에이전트가 스스로 고칠 수 있도록 필드별 검증 메시지를 그대로 돌려준다
+    message = error.issues
+      .map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message))
+      .join('; ');
+  } else {
     console.error('[mcp] tool error', error);
+    message = '요청을 처리하지 못했습니다. 입력을 확인하고 다시 시도하세요.';
   }
   return {
     content: [{ type: 'text' as const, text: JSON.stringify({ error: message }) }],

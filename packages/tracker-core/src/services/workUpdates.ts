@@ -71,16 +71,22 @@ export async function recordWorkUpdate(
     else if (changedFiles.length > 0) verification = 'NEEDS_VERIFICATION';
 
     const now = new Date();
+    // 코드 변경이 없는 기록(리뷰만, 검증만)은 구현 상태를 건드리지 않는다
+    const hasCodeChange = changedFiles.length > 0;
     for (const feature of features) {
       const implementation =
         input.implementationStatus ??
-        (feature.implementationStatus === 'NOT_STARTED' ? 'PARTIAL' : 'CHANGED');
+        (hasCodeChange
+          ? feature.implementationStatus === 'NOT_STARTED'
+            ? 'PARTIAL'
+            : 'CHANGED'
+          : null);
       await tx.featureNode.update({
         where: { id: feature.id },
         data: {
-          implementationStatus: implementation,
+          ...(implementation ? { implementationStatus: implementation } : {}),
           ...(verification ? { verificationStatus: verification } : {}),
-          lastChangedAt: now,
+          ...(hasCodeChange || implementation ? { lastChangedAt: now } : {}),
         },
       });
 
