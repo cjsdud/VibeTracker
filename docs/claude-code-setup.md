@@ -74,7 +74,19 @@ claude mcp add --transport http vibetrack https://<앱 도메인>/mcp \
 - 등록 후 나에게 "VibeTrack 웹에서 기능 지도를 검토하고 승인하세요"라고 알려라.
 ```
 
-## 5. 연결 확인
+## 5. 지난 세션 기록 가져오기 (선택)
+
+기능 지도를 승인한 뒤, 과거에 Claude Code로 작업했던 기록을 소급 복원할 수 있다.
+설정 화면의 "지난 Claude Code 세션 기록 가져오기" 프롬프트를 **한 번** 실행하면
+Claude Code가 `~/.claude/projects/`의 자기 세션 로그(.jsonl)를 읽고, 세션별 작업 요약·
+변경 파일·미해결 질문을 `record_work_update`(+`occurredAt`)로 등록한다.
+
+- 소급 기록은 타임라인/증거/질문만 남기고 **현재 기능 상태는 바꾸지 않는다**
+- 과거의 테스트 실패는 Inbox 알림을 만들지 않는다 (이미 해결됐을 수 있으므로)
+- VibeTrack이 대화 로그를 직접 읽는 것이 아니라, 사용자의 Claude Code가 읽고 판단해서
+  기록한다 (제품 원칙: VibeTrack 자체 LLM 없음)
+
+## 6. 연결 확인
 
 - 설정 화면의 "연결 상태"는 해당 프로젝트 토큰으로 MCP 요청이 마지막으로 들어온 시각
   (`lastUsedAt`)을 보여준다.

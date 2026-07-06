@@ -134,6 +134,43 @@ describe('record_work_update', () => {
     ).rejects.toThrow(/찾을 수 없습니다/);
   });
 
+  it('occurredAt 소급 기록은 타임라인만 남기고 현재 상태를 바꾸지 않는다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    const feature = await activeFeature(projectId, '로그인', {
+      implementationStatus: 'IMPLEMENTED',
+      verificationStatus: 'PASSED',
+    });
+    const pastIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const result = await recordWorkUpdate(prisma, {
+      input: {
+        projectId,
+        featureIds: [feature.id],
+        summary: '지난주에 했던 로그인 리팩터링 (소급 기록)',
+        changedFiles: ['src/auth/login.ts'],
+        tests: { status: 'FAILED', failed: 2 },
+        occurredAt: pastIso,
+      },
+    });
+    expect(result.historical).toBe(true);
+    expect(result.verificationApplied).toBeNull();
+
+    // 상태는 그대로, 타임스탬프는 소급
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('IMPLEMENTED');
+    expect(after.verificationStatus).toBe('PASSED');
+    const update = await prisma.workUpdate.findUniqueOrThrow({
+      where: { id: result.workUpdate.id },
+    });
+    expect(update.createdAt.toISOString()).toBe(pastIso);
+    // 과거의 테스트 실패는 Inbox 알림을 만들지 않는다 (검증 기록은 남는다)
+    expect(await prisma.inboxItem.count({ where: { projectId, type: 'TEST_FAILURE' } })).toBe(0);
+    expect(await prisma.verificationRun.count({ where: { projectId } })).toBe(1);
+    // 증거와 타임라인 연결은 정상 생성
+    expect(
+      await prisma.featureEvidence.count({ where: { featureNodeId: feature.id, type: 'FILE' } }),
+    ).toBe(1);
+  });
+
   it('openQuestions와 nextTask가 저장된다', async () => {
     const { projectId } = await createUserAndProject(prisma);
     const feature = await activeFeature(projectId, '검색');

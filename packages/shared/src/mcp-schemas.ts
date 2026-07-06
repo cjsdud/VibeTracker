@@ -90,6 +90,13 @@ export const recordWorkUpdateInput = z.object({
   manualCheck: z.boolean().optional().describe('실제로 실행해서 사용 확인을 했으면 true'),
   openQuestions: z.array(z.string().min(1).max(1000)).max(20).optional().describe('미해결 질문'),
   nextTask: z.string().max(1000).optional().describe('다음 작업 제안'),
+  occurredAt: z
+    .string()
+    .datetime()
+    .optional()
+    .describe(
+      '과거 세션을 소급 기록할 때 그 작업이 실제로 있었던 시각(ISO 8601). 지정하면 타임라인/증거/질문만 기록되고 현재 기능 상태(구현/검증)는 변경되지 않는다.',
+    ),
 });
 export type RecordWorkUpdateInput = z.infer<typeof recordWorkUpdateInput>;
 

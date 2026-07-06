@@ -9,6 +9,8 @@ export interface RecordWorkUpdateResult {
   linkedFeatures: { id: string; name: string }[];
   untracked: boolean;
   verificationApplied: string | null;
+  /** occurredAt으로 소급 기록된 경우 true (상태 변경 없음) */
+  historical: boolean;
 }
 
 /**
@@ -46,6 +48,11 @@ export async function recordWorkUpdate(
     const changedFiles = input.changedFiles ?? [];
     const testsStatus = input.tests?.status ?? null;
 
+    // 과거 세션 소급 기록(occurredAt): 타임라인/증거/질문만 남기고
+    // 현재 기능 상태(구현/검증)는 변경하지 않는다. 그 사이 상황이 이미 달라졌을 수 있다.
+    const occurredAt = input.occurredAt ? new Date(input.occurredAt) : null;
+    const isHistorical = occurredAt !== null && occurredAt.getTime() < Date.now() - 60_000;
+
     const workUpdate = await tx.workUpdate.create({
       data: {
         projectId: input.projectId,
@@ -59,6 +66,7 @@ export async function recordWorkUpdate(
         testsSummary: input.tests?.summary ?? null,
         manualCheck: input.manualCheck ?? false,
         nextTask: input.nextTask ?? null,
+        ...(occurredAt ? { createdAt: occurredAt } : {}),
         features: { create: features.map((f) => ({ featureNodeId: f.id })) },
       },
     });
@@ -69,24 +77,34 @@ export async function recordWorkUpdate(
     else if (input.manualCheck) verification = 'MANUAL_VERIFIED';
     else if (testsStatus === 'PASSED') verification = 'PASSED';
     else if (changedFiles.length > 0) verification = 'NEEDS_VERIFICATION';
+    if (isHistorical) verification = null;
 
     const now = new Date();
     // 코드 변경이 없는 기록(리뷰만, 검증만)은 구현 상태를 건드리지 않는다
     const hasCodeChange = changedFiles.length > 0;
     for (const feature of features) {
-      const implementation =
-        input.implementationStatus ??
-        (hasCodeChange
-          ? feature.implementationStatus === 'NOT_STARTED'
-            ? 'PARTIAL'
-            : 'CHANGED'
-          : null);
+      const implementation = isHistorical
+        ? null
+        : (input.implementationStatus ??
+          (hasCodeChange
+            ? feature.implementationStatus === 'NOT_STARTED'
+              ? 'PARTIAL'
+              : 'CHANGED'
+            : null));
+      // 소급 기록은 lastChangedAt을 뒤로 돌리지 않되, 비어 있거나 더 오래됐으면 채워준다
+      const lastChangedAt = isHistorical
+        ? !feature.lastChangedAt || feature.lastChangedAt < occurredAt
+          ? occurredAt
+          : null
+        : hasCodeChange || implementation
+          ? now
+          : null;
       await tx.featureNode.update({
         where: { id: feature.id },
         data: {
           ...(implementation ? { implementationStatus: implementation } : {}),
           ...(verification ? { verificationStatus: verification } : {}),
-          ...(hasCodeChange || implementation ? { lastChangedAt: now } : {}),
+          ...(lastChangedAt ? { lastChangedAt } : {}),
         },
       });
 
@@ -127,6 +145,7 @@ export async function recordWorkUpdate(
             source: 'MCP',
             status: testsStatus,
             name: 'Claude Code 테스트 실행',
+            ...(occurredAt ? { createdAt: occurredAt } : {}),
             details: {
               passed: input.tests?.passed ?? null,
               failed: input.tests?.failed ?? null,
@@ -135,7 +154,8 @@ export async function recordWorkUpdate(
           },
         });
       }
-      if (testsStatus === 'FAILED') {
+      // 과거의 테스트 실패는 이미 해결됐을 수 있으므로 Inbox 알림을 만들지 않는다
+      if (testsStatus === 'FAILED' && !isHistorical) {
         await tx.inboxItem.create({
           data: {
             projectId: input.projectId,
@@ -188,6 +208,7 @@ export async function recordWorkUpdate(
         unmatchedIds,
         testsStatus,
         untracked,
+        historical: isHistorical,
       },
     });
 
@@ -196,6 +217,7 @@ export async function recordWorkUpdate(
       linkedFeatures: features.map((f) => ({ id: f.id, name: f.name })),
       untracked,
       verificationApplied: verification,
+      historical: isHistorical,
     };
   });
 }

@@ -201,5 +201,6 @@ export interface ClaudeSetupDto {
   mcpJsonExample: string;
   claudeMdExample: string;
   bootstrapPrompt: string;
+  historyImportPrompt: string;
   addCommandExample: string;
 }

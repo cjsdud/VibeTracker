@@ -93,6 +93,14 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
               label="4) 초기 기능 지도 생성 프롬프트 (한 번 실행)"
               text={setupData.bootstrapPrompt}
             />
+            <CopyBlock
+              label="5) 지난 Claude Code 세션 기록 가져오기 (선택, 한 번 실행)"
+              text={setupData.historyImportPrompt}
+            />
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
+              5번은 기능 지도 승인 후에 실행하세요. 과거 세션 로그를 읽어 작업 타임라인과 미해결
+              질문을 소급 복원합니다. 현재 기능 상태는 바꾸지 않습니다.
+            </p>
           </>
         )}
       </div>

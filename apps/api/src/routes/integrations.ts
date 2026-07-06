@@ -48,6 +48,37 @@ function buildClaudeMd(): string {
 5. 무엇을 할지 모르겠으면 \`get_next_task\`로 현재 우선 작업 1개를 받아 수행한다.`;
 }
 
+function buildHistoryImportPrompt(projectId: string): string {
+  return `지난 Claude Code 세션 기록을 VibeTrack 프로젝트 "${projectId}"에 소급 등록해라.
+
+준비:
+- 먼저 get_project_context로 승인된 기능 트리와 기능 ID를 확인해라.
+- 이 작업은 한 번만 실행해야 한다. recentWork에 이미 과거 날짜의 소급 기록이 보이면
+  중단하고 사용자에게 알려라.
+
+세션 로그 위치:
+- ~/.claude/projects/ 아래에 현재 프로젝트 경로를 변환한 폴더가 있다
+  (경로 구분자 '/'를 '-'로 바꾼 이름).
+- 그 안의 *.jsonl 파일 하나가 세션 하나다. 수정 시각이 오래된 것부터 처리해라.
+- 파일이 크면 전체를 읽지 말고 사용자 메시지와 마지막 요약 위주로 훑어라.
+
+각 세션에서 추출할 것:
+- 실제로 수행한 작업 요약 (요청과 결과 중심, 1~3문장)
+- 변경한 파일 경로들
+- 테스트 실행 결과 (있으면 PASSED/FAILED)
+- 아직도 해결되지 않은 질문·미완성 항목만
+- 세션 마지막 타임스탬프 → occurredAt (ISO 8601)
+- git log에서 그 시점 커밋을 찾을 수 있으면 gitHeadSha로 포함
+
+기록 규칙:
+- 의미 있는 작업 세션만 기록해라. 질문/조회만 한 세션은 건너뛴다.
+- 세션마다 record_work_update를 호출하되 반드시 occurredAt을 넣어라.
+  occurredAt이 있으면 타임라인/증거만 기록되고 현재 기능 상태는 바뀌지 않는다.
+- featureIds는 기능 트리에서 가장 맞는 기능들을 골라 반드시 지정해라.
+- 이미 해결된 질문은 openQuestions에 넣지 마라.
+- 끝나면 몇 개 세션을 기록했고 몇 개를 건너뛰었는지 보고해라.`;
+}
+
 function buildBootstrapPrompt(projectId: string): string {
   return `이 저장소 전체를 읽고 VibeTrack에 초기 기능 지도를 등록해라.
 
@@ -139,6 +170,7 @@ export async function integrationRoutes(
       ),
       claudeMdExample: buildClaudeMd(),
       bootstrapPrompt: buildBootstrapPrompt(projectId),
+      historyImportPrompt: buildHistoryImportPrompt(projectId),
     };
     return { setup };
   });

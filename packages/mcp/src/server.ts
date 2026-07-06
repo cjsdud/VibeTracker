@@ -140,7 +140,7 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
     {
       title: '작업 결과 기록',
       description:
-        '작업을 마치기 전에 호출해 결과를 기록한다. 관련 기능의 타임라인/증거/검증 상태가 자동 갱신된다. 테스트 결과와 미해결 질문을 반드시 포함하라. 기능 구조를 바꾸는 요청은 이 도구가 아니라 propose_structure_change를 사용하라.',
+        '작업을 마치기 전에 호출해 결과를 기록한다. 관련 기능의 타임라인/증거/검증 상태가 자동 갱신된다. 테스트 결과와 미해결 질문을 반드시 포함하라. 기능 구조를 바꾸는 요청은 이 도구가 아니라 propose_structure_change를 사용하라. 과거 세션을 소급 기록할 때는 occurredAt(ISO 시각)을 넣어라 — 타임라인만 남고 현재 상태는 바뀌지 않는다.',
       inputSchema: recordWorkUpdateInput.shape,
     },
     async (args) => {
