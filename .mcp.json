@@ -2,7 +2,7 @@
   "mcpServers": {
     "vibetrack": {
       "type": "http",
-      "url": "https://YOUR-APP.onrender.com/mcp",
+      "url": "https://vibetracker.onrender.com/mcp",
       "headers": {
         "Authorization": "Bearer vtk_d6kivvXPRbjaM98w4MAavW8vdpmeDXhwBQltmjhbwkw"
       }
