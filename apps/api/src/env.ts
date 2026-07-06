@@ -27,6 +27,10 @@ export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(overrides: Partial<Record<string, string>> = {}): Env {
   const merged = { ...process.env, ...overrides };
+  // Render는 서비스 외부 URL을 RENDER_EXTERNAL_URL로 주입한다. APP_URL 미설정 시 그걸 쓴다.
+  if (!merged.APP_URL && merged.RENDER_EXTERNAL_URL) {
+    merged.APP_URL = merged.RENDER_EXTERNAL_URL;
+  }
   const parsed = envSchema.safeParse(merged);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');

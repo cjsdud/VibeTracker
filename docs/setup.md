@@ -64,18 +64,38 @@ GitHub 변수가 없어도 앱은 DEMO_MODE로 정상 동작한다.
 
 ## Render 배포
 
+### 방법 A: Blueprint (권장)
+
+저장소 루트의 `render.yaml`이 웹 서비스 + Postgres를 정의한다.
+
+1. Render 대시보드 → **New + → Blueprint** → 이 저장소 선택 → 배포할 **브랜치 선택**
+2. 끝. `DATABASE_URL`/`SESSION_SECRET`/`NODE_ENV`/`DEMO_MODE`가 자동 설정되고,
+   시작 시 `pnpm db:migrate`가 먼저 실행된다.
+
+### 방법 B: 수동 생성
+
 1. **Render Postgres** 인스턴스를 만들고 `DATABASE_URL`(internal URL 권장)을 확보한다.
 2. **Render Web Service**를 만든다.
-   - Repo: 이 저장소
-   - Build command: `corepack enable && pnpm install --frozen-lockfile && pnpm build && pnpm db:generate`
-   - Pre-deploy(또는 start 앞단): `pnpm db:migrate`
-   - Start command: `pnpm start` (= `tsx apps/api/src/index.ts`, 웹 정적 파일 포함 서빙)
-   - 환경변수: 위 표 참조. `APP_URL`은 Render가 준 도메인으로.
+   - Repo: 이 저장소 (Branch는 아무 브랜치나 선택 가능 — main일 필요 없음)
+   - Build command:
+     `corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile && pnpm build`
+   - Start command: `pnpm db:migrate && pnpm start`
+   - Health check path: `/api/health`
+   - 환경변수: 위 표 참조 + **`NODE_ENV=production` 필수**(없으면 웹 화면이 서빙되지 않는다),
+     `NODE_VERSION=22`. `APP_URL`은 비워두면 Render의 `RENDER_EXTERNAL_URL`로 자동 대체된다.
 3. GitHub App webhook URL을 `https://<앱 도메인>/api/github/webhook`으로 설정한다.
    (GitHub App 생성은 `docs/github-app-setup.md` 참조)
 4. 트래픽 증가 시 **Background Worker** 서비스를 추가한다.
    - Start command: `pnpm worker`
    - Web Service에 `INLINE_WORKER=false` 설정
+
+### 안 뜰 때 체크리스트
+
+- 화면이 404/빈 페이지: `NODE_ENV=production`이 설정됐는지 확인 (가장 흔한 원인)
+- 빌드 실패 `pnpm: command not found`: build command에 `corepack enable`이 있는지 확인
+- 시작 실패 `환경변수 설정 오류`: `DATABASE_URL`, `SESSION_SECRET` 설정 확인
+- P1001 (DB 연결 실패): Postgres와 같은 리전인지, internal URL을 쓰는지 확인
+- 로그인 화면에 버튼이 없음: `DEMO_MODE=true` 또는 GitHub OAuth 자격증명 필요
 
 ## 문제 해결
 
