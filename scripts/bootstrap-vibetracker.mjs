@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global process, URL, fetch */
+/* global process, URL, fetch, console */
 /**
  * VibeTracker 저장소 자신의 기능 지도를 VibeTrack에 등록하는 1회성 스크립트.
  * .mcp.json의 endpoint/토큰을 사용한다. 실행: node scripts/bootstrap-vibetracker.mjs
