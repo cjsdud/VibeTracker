@@ -95,7 +95,17 @@ claude mcp add --transport http vibetrack https://<앱 도메인>/mcp \
   현재 git HEAD SHA와 함께 호출해라.
 - 결과에 qualityWarnings가 있으면 지적된 이름/설명을 고쳐 같은 도구를 다시
   호출해라 (초안이 새 초안으로 교체된다).
-- 등록 후 나에게 "VibeTrack 웹에서 기능 지도를 검토하고 승인하세요"라고 알려라.
+
+지난 히스토리 연결 (기록이 있으면 반드시):
+- 등록 직후 git log를 훑고, ~/.claude/projects/에 지난 Claude Code 세션 기록이
+  있으면 그것도 함께 훑어라.
+- 의미 있는 작업/커밋마다 record_work_update를 호출해 방금 등록한 기능들에
+  연결해라. 반드시 occurredAt(그 작업의 실제 시각, ISO 8601)을 넣어라 —
+  소급 기록은 타임라인만 남기고 현재 상태는 바꾸지 않는다.
+- 승인 전 초안 기능에도 연결할 수 있고, 승인되면 그대로 유지된다.
+  이렇게 해야 기능 지도에서 기능마다 "언제 무엇을 했는지"가 함께 보인다.
+
+- 끝나면 나에게 "VibeTrack 웹에서 기능 지도를 검토하고 승인하세요"라고 알려라.
 ```
 
 등록 결과에는 규칙 기반 `qualityWarnings`가 포함될 수 있다 (기술 용어 이름,
@@ -104,10 +114,12 @@ claude mcp add --transport http vibetrack https://<앱 도메인>/mcp \
 
 ## 5. 지난 세션 기록 가져오기 (선택)
 
-기능 지도를 승인한 뒤, 과거에 Claude Code로 작업했던 기록을 소급 복원할 수 있다.
-설정 화면의 "지난 Claude Code 세션 기록 가져오기" 프롬프트를 **한 번** 실행하면
-Claude Code가 `~/.claude/projects/`의 자기 세션 로그(.jsonl)를 읽고, 세션별 작업 요약·
+bootstrap 프롬프트가 히스토리 연결까지 지시하므로 보통은 따로 실행할 필요가 없다.
+지도만 등록하고 히스토리를 건너뛴 경우, 설정 화면의 "지난 Claude Code 세션 기록
+가져오기" 프롬프트를 **한 번** 실행하면 Claude Code가 `~/.claude/projects/`의
+자기 세션 로그(.jsonl)를 읽고(없으면 git log의 커밋 단위로), 세션별 작업 요약·
 변경 파일·미해결 질문을 `record_work_update`(+`occurredAt`)로 등록한다.
+지도 승인 전 초안 기능에도 연결할 수 있으며 승인 후 그대로 유지된다.
 
 - 소급 기록은 타임라인/증거/질문만 남기고 **현재 기능 상태는 바꾸지 않는다**
 - 과거의 테스트 실패는 Inbox 알림을 만들지 않는다 (이미 해결됐을 수 있으므로)

@@ -119,7 +119,7 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
     {
       title: '기능 지도 등록 (초기/교체)',
       description:
-        '저장소 분석 후 기능 지도 초안을 등록한다. 이 지도는 개발을 모르는 사람이 읽는다: 모든 이름은 "사용자가 하는 일/눈에 보이는 것"으로 짓고(기술 용어·폴더/파일명 금지, 예: "Webhook 수신"이 아니라 "GitHub 활동 자동 반영"), 모든 기능에 한 줄 description을 넣어라. 큐·캐시 같은 내부 구성요소는 기능으로 만들지 말고 관련 사용자 기능의 evidence(파일/라우트/API/테스트)로만 연결하라. 최상위 영역은 3~6개를 사용자가 쓰는 순서대로. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다. 결과에 qualityWarnings가 있으면 지적을 고쳐 이 도구를 다시 호출하라(초안이 교체된다). 이미 승인된 지도가 있어도 호출할 수 있다 — 새 초안 승인 시 기존 지도 전체가 종료(RETIRED)되고 교체된다. 부분 수정은 propose_structure_change를 사용하라.',
+        '저장소 분석 후 기능 지도 초안을 등록한다. 이 지도는 개발을 모르는 사람이 읽는다: 모든 이름은 "사용자가 하는 일/눈에 보이는 것"으로 짓고(기술 용어·폴더/파일명 금지, 예: "Webhook 수신"이 아니라 "GitHub 활동 자동 반영"), 모든 기능에 한 줄 description을 넣어라. 큐·캐시 같은 내부 구성요소는 기능으로 만들지 말고 관련 사용자 기능의 evidence(파일/라우트/API/테스트)로만 연결하라. 최상위 영역은 3~6개를 사용자가 쓰는 순서대로. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다. 결과에 qualityWarnings가 있으면 지적을 고쳐 이 도구를 다시 호출하라(초안이 교체된다). 등록 후 git log나 지난 세션 기록이 있으면 record_work_update(occurredAt 소급)로 등록한 기능들에 히스토리를 연결하라 — 초안 기능에도 연결되며 승인 후 유지된다. 이미 승인된 지도가 있어도 호출할 수 있다 — 새 초안 승인 시 기존 지도 전체가 종료(RETIRED)되고 교체된다. 부분 수정은 propose_structure_change를 사용하라.',
       inputSchema: bootstrapProjectMapInput.shape,
     },
     async (args) => {

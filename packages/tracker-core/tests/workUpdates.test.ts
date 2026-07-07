@@ -171,6 +171,37 @@ describe('record_work_update', () => {
     ).toBe(1);
   });
 
+  it('승인 전 초안(DRAFT) 기능에도 소급 기록이 연결된다 — bootstrap 직후 히스토리 백필', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    const draft = await prisma.featureNode.create({
+      data: {
+        projectId,
+        name: '지도 초안 자동 생성',
+        lifecycle: 'DRAFT',
+        implementationStatus: 'IMPLEMENTED',
+      },
+    });
+    const pastIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const result = await recordWorkUpdate(prisma, {
+      input: {
+        projectId,
+        featureIds: [draft.id],
+        summary: '어제 했던 초안 생성 로직 구현 (소급)',
+        changedFiles: ['packages/tracker-core/src/services/featureTree.ts'],
+        occurredAt: pastIso,
+      },
+    });
+    expect(result.historical).toBe(true);
+    expect(result.linkedFeatures.map((f) => f.id)).toEqual([draft.id]);
+
+    // 초안 상태 그대로, 타임라인/증거만 연결
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: draft.id } });
+    expect(after.lifecycle).toBe('DRAFT');
+    expect(after.implementationStatus).toBe('IMPLEMENTED');
+    expect(after.verificationStatus).toBe('UNKNOWN');
+    expect(await prisma.workUpdateFeature.count({ where: { featureNodeId: draft.id } })).toBe(1);
+  });
+
   it('미래 시각의 occurredAt은 거부된다 (타임존 실수 방지)', async () => {
     const { projectId } = await createUserAndProject(prisma);
     const feature = await activeFeature(projectId, '로그인');

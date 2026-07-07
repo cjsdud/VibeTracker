@@ -52,7 +52,8 @@ function buildHistoryImportPrompt(projectId: string): string {
   return `지난 Claude Code 세션 기록을 VibeTrack 프로젝트 "${projectId}"에 소급 등록해라.
 
 준비:
-- 먼저 get_project_context로 승인된 기능 트리와 기능 ID를 확인해라.
+- 먼저 get_project_context로 기능 트리와 기능 ID를 확인해라.
+  (승인 전 초안(draft) 기능에도 연결할 수 있다 — 승인되면 그대로 유지된다)
 - 이 작업은 한 번만 실행해야 한다. recentWork에 이미 과거 날짜의 소급 기록이 보이면
   중단하고 사용자에게 알려라.
 
@@ -61,6 +62,7 @@ function buildHistoryImportPrompt(projectId: string): string {
   (경로 구분자 '/'를 '-'로 바꾼 이름).
 - 그 안의 *.jsonl 파일 하나가 세션 하나다. 수정 시각이 오래된 것부터 처리해라.
 - 파일이 크면 전체를 읽지 말고 사용자 메시지와 마지막 요약 위주로 훑어라.
+- 세션 기록이 없으면 git log의 의미 있는 커밋 단위로라도 소급 기록해라.
 
 각 세션에서 추출할 것:
 - 실제로 수행한 작업 요약 (요청과 결과 중심, 1~3문장)
@@ -116,7 +118,17 @@ function buildBootstrapPrompt(projectId: string): string {
   현재 git HEAD SHA와 함께 호출해라.
 - 결과에 qualityWarnings가 있으면 지적된 이름/설명을 고쳐 같은 도구를 다시
   호출해라 (초안이 새 초안으로 교체된다).
-- 등록 후 나에게 "VibeTrack 웹에서 기능 지도를 검토하고 승인하세요"라고 알려라.`;
+
+지난 히스토리 연결 (기록이 있으면 반드시):
+- 등록 직후 git log를 훑고, ~/.claude/projects/에 지난 Claude Code 세션 기록이
+  있으면 그것도 함께 훑어라.
+- 의미 있는 작업/커밋마다 record_work_update를 호출해 방금 등록한 기능들에
+  연결해라. 반드시 occurredAt(그 작업의 실제 시각, ISO 8601)을 넣어라 —
+  소급 기록은 타임라인만 남기고 현재 상태는 바꾸지 않는다.
+- 승인 전 초안 기능에도 연결할 수 있고, 승인되면 그대로 유지된다.
+  이렇게 해야 기능 지도에서 기능마다 "언제 무엇을 했는지"가 함께 보인다.
+
+- 끝나면 나에게 "VibeTrack 웹에서 기능 지도를 검토하고 승인하세요"라고 알려라.`;
 }
 
 export async function integrationRoutes(
