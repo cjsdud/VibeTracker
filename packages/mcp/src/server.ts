@@ -119,7 +119,7 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
     {
       title: '기능 지도 등록 (초기/교체)',
       description:
-        '저장소 분석 후 기능 지도 초안을 등록한다. 파일 트리가 아니라 사용자 관점의 기능 트리를 등록하라. 기능마다 파일/라우트/API/테스트 증거를 연결하라. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다. 이미 승인된 지도가 있어도 호출할 수 있다 — 사용자가 새 초안을 승인하는 순간 기존 지도 전체가 종료(RETIRED)되고 새 지도로 교체된다. 개별 기능 추가/이름 변경 같은 부분 수정은 propose_structure_change를 사용하라.',
+        '저장소 분석 후 기능 지도 초안을 등록한다. 이 지도는 개발을 모르는 사람이 읽는다: 모든 이름은 "사용자가 하는 일/눈에 보이는 것"으로 짓고(기술 용어·폴더/파일명 금지, 예: "Webhook 수신"이 아니라 "GitHub 활동 자동 반영"), 모든 기능에 한 줄 description을 넣어라. 큐·캐시 같은 내부 구성요소는 기능으로 만들지 말고 관련 사용자 기능의 evidence(파일/라우트/API/테스트)로만 연결하라. 최상위 영역은 3~6개를 사용자가 쓰는 순서대로. 결과는 무조건 DRAFT(승인 대기)이며 사용자가 웹에서 승인해야 활성화된다. 결과에 qualityWarnings가 있으면 지적을 고쳐 이 도구를 다시 호출하라(초안이 교체된다). 이미 승인된 지도가 있어도 호출할 수 있다 — 새 초안 승인 시 기존 지도 전체가 종료(RETIRED)되고 교체된다. 부분 수정은 propose_structure_change를 사용하라.',
       inputSchema: bootstrapProjectMapInput.shape,
     },
     async (args) => {
@@ -134,6 +134,14 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
           message: result.replacesActiveMap
             ? '기능 지도 교체 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 승인하면 기존 지도는 종료되고 이 초안이 새 지도가 됩니다. 사용자에게 승인을 요청하세요.'
             : '기능 지도 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 검토·승인해야 활성화됩니다. 사용자에게 승인을 요청하세요.',
+          ...(result.qualityWarnings.length > 0
+            ? {
+                qualityWarnings: result.qualityWarnings.slice(0, 20).map((w) => w.message),
+                qualityWarningCount: result.qualityWarnings.length,
+                qualityHint:
+                  '품질 경고가 있습니다. 지적된 이름/설명을 고쳐 bootstrap_project_map을 다시 호출하면 초안이 자동으로 교체됩니다. 고칠 수 없는 사소한 지적이면 그대로 승인을 요청해도 됩니다.',
+              }
+            : {}),
           tree: result.tree,
         });
       } catch (error) {

@@ -47,8 +47,18 @@ export interface BootstrapNodeInput {
 
 const bootstrapNodeSchema: z.ZodType<BootstrapNodeInput> = z.lazy(() =>
   z.object({
-    name: z.string().min(1).max(120).describe('사용자 관점의 기능 이름 (폴더/파일명 금지)'),
-    description: z.string().max(2000).optional(),
+    name: z
+      .string()
+      .min(1)
+      .max(120)
+      .describe(
+        '사용자가 하는 일/눈에 보이는 것으로 지은 기능 이름. 기술 용어(API, webhook, 큐 등)·폴더/파일명 금지. 예: "GitHub 활동 자동 반영"(좋음), "Webhook 수신"(나쁨)',
+      ),
+    description: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe('한 줄 설명 — "누가 무엇을 할 수 있다" 형식. 모든 기능에 반드시 채워라'),
     isCore: z.boolean().optional().describe('제품이 성립하는 데 필수인 핵심 기능이면 true'),
     implementationStatus: implementationStatusInput.optional(),
     evidence: bootstrapEvidenceSchema.optional(),

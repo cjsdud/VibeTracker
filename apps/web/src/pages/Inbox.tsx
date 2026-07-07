@@ -47,6 +47,8 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
     declaredFiles?: string[];
     actualFiles?: string[];
     summary?: string | null;
+    qualityWarnings?: string[];
+    qualityWarningCount?: number;
   };
 
   return (
@@ -110,6 +112,20 @@ function InboxCard({ project, item }: { project: ProjectDto; item: InboxItemDto 
 
       {item.type === 'FEATURE_MAP_REVIEW' && (
         <div style={{ marginTop: 10 }}>
+          {(detail.qualityWarnings?.length ?? 0) > 0 && (
+            <div className="alert info" style={{ marginBottom: 8, fontSize: 13.5 }}>
+              <strong>지도 품질 참고 {detail.qualityWarningCount ?? detail.qualityWarnings!.length}건</strong>{' '}
+              — 마음에 들지 않으면 Claude Code에 다시 만들어 달라고 하세요.
+              <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                {detail.qualityWarnings!.slice(0, 5).map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+                {(detail.qualityWarningCount ?? 0) > 5 && (
+                  <li>외 {(detail.qualityWarningCount ?? 0) - 5}건</li>
+                )}
+              </ul>
+            </div>
+          )}
           <Link className="btn primary small" to="/features">
             기능 지도에서 검토하기
           </Link>

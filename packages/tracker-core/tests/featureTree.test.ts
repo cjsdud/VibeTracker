@@ -65,6 +65,30 @@ describe('feature tree bootstrap + approval', () => {
     expect(evidence.map((e) => e.type).sort()).toEqual(['API_ENDPOINT', 'FILE', 'ROUTE', 'TEST']);
   });
 
+  it('품질 경고(기술 용어 이름·설명 없음)가 결과와 검토 Inbox 항목에 실린다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    const result = await bootstrapProjectMap(prisma, {
+      input: {
+        projectId,
+        features: [
+          { name: 'MCP 엔드포인트' }, // TECH_NAME + NO_DESCRIPTION
+          { name: '시작하기와 로그인', description: '데모 계정으로 바로 체험할 수 있다' },
+        ],
+      },
+    });
+    expect(result.qualityWarnings.map((w) => w.code).sort()).toEqual([
+      'NO_DESCRIPTION',
+      'TECH_NAME',
+    ]);
+
+    const review = await prisma.inboxItem.findFirstOrThrow({
+      where: { projectId, type: 'FEATURE_MAP_REVIEW', status: 'OPEN' },
+    });
+    const detail = review.detail as { qualityWarnings?: string[]; qualityWarningCount?: number };
+    expect(detail.qualityWarningCount).toBe(2);
+    expect(detail.qualityWarnings?.some((m) => m.includes('MCP 엔드포인트'))).toBe(true);
+  });
+
   it('재부트스트랩은 기존 DRAFT만 교체한다 (승인 전)', async () => {
     const { projectId } = await createUserAndProject(prisma);
     await bootstrapProjectMap(prisma, { input: sampleMap(projectId) });

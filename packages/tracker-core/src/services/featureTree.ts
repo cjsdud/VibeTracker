@@ -1,7 +1,9 @@
 import {
+  assessFeatureMapQuality,
   type BootstrapNodeInput,
   type BootstrapProjectMapInput,
   type FeatureNodeDto,
+  type MapQualityWarning,
   type TreeVersionCause,
   type WorkUpdateSource,
 } from '@vibetrack/shared';
@@ -88,8 +90,16 @@ export async function createTreeVersion(
 export async function bootstrapProjectMap(
   prisma: PrismaClient,
   params: { input: BootstrapProjectMapInput; source?: WorkUpdateSource },
-): Promise<{ tree: FeatureNodeDto[]; draftCount: number; replacesActiveMap: boolean }> {
+): Promise<{
+  tree: FeatureNodeDto[];
+  draftCount: number;
+  replacesActiveMap: boolean;
+  qualityWarnings: MapQualityWarning[];
+}> {
   const { input } = params;
+  // 규칙 기반 품질 점검 — 등록은 막지 않고 경고만 돌려준다.
+  // Claude Code가 경고를 보고 고쳐서 재등록하면 초안이 교체된다.
+  const qualityWarnings = assessFeatureMapQuality(input.features);
 
   return prisma.$transaction(async (tx) => {
     // 구조 변경 경로(부트스트랩/지도 승인/제안 승인)를 프로젝트 단위로 직렬화한다
@@ -229,6 +239,9 @@ export async function bootstrapProjectMap(
           draftCount,
           baseCommitSha: input.baseCommitSha ?? null,
           replacesActiveMap,
+          // 웹 Inbox에서 사용자에게도 보여준다 (검토 시 판단 근거)
+          qualityWarnings: qualityWarnings.slice(0, 15).map((w) => w.message),
+          qualityWarningCount: qualityWarnings.length,
         },
       },
     });
@@ -242,6 +255,7 @@ export async function bootstrapProjectMap(
       tree: buildFeatureTree(await getFeatureNodes(tx, input.projectId)),
       draftCount,
       replacesActiveMap,
+      qualityWarnings,
     };
   });
 }
