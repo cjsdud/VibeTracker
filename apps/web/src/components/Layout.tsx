@@ -28,6 +28,7 @@ export function Layout({
 
   const projectSelector = (
     <select
+      className="project-select"
       value={project.id}
       onChange={(e) => {
         if (e.target.value === '__new') {
@@ -36,16 +37,6 @@ export function Layout({
         }
         onSelectProject(e.target.value);
         navigate('/');
-      }}
-      style={{
-        width: '100%',
-        padding: '8px 10px',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        fontWeight: 700,
-        marginBottom: 8,
-        background: 'var(--surface)',
-        color: 'var(--text)',
       }}
     >
       {projects.map((p) => (
@@ -71,6 +62,16 @@ export function Layout({
 
   return (
     <div className="layout">
+      {/* 모바일(사이드바 숨김)에서도 프로젝트 전환/로그아웃이 가능해야 한다 */}
+      <header className="mobile-topbar">
+        <div className="brand">
+          Vibe<span>Track</span>
+        </div>
+        {projectSelector}
+        <button className="btn small" onClick={() => logout.mutate()}>
+          로그아웃
+        </button>
+      </header>
       <aside className="sidebar">
         <div className="brand">
           Vibe<span>Track</span>
