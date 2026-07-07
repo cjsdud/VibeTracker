@@ -191,7 +191,9 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (body: { name: string; goal?: string }) =>
       api<{ project: ProjectDto }>('/api/projects', { method: 'POST', body }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    // promise를 반환해 refetch가 끝난 뒤에 onSuccess 콜백이 실행되게 한다.
+    // (stale 목록 상태로 온보딩에 진입해 엉뚱한 프로젝트로 튕기는 레이스 방지)
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
 

@@ -1,7 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   approveInitialFeatureMap,
+  approveProposal,
   bootstrapProjectMap,
+  createProposal,
   getDashboardCounts,
   getFeatureTree,
   getNextTask,
@@ -250,6 +252,101 @@ describe('시나리오 B: 기능 지도 교체 (ACTIVE 지도 위에 재부트�
       where: { id: { in: next.featureIds } },
     });
     expect(referenced.every((n) => n.lifecycle === 'ACTIVE')).toBe(true);
+  });
+
+  it('B7: 교체 승인 시 옛 지도 기준의 PENDING 제안은 만료되고 Inbox도 정리된다', async () => {
+    const { projectId, userId } = await approvedProject();
+    const oldFeature = await prisma.featureNode.findFirstOrThrow({
+      where: { projectId, name: '로그인' },
+    });
+    const proposal = await createProposal(prisma, {
+      input: {
+        projectId,
+        type: 'RENAME',
+        reason: '옛 지도 기준 제안',
+        targetFeatureIds: [oldFeature.id],
+        newName: '통합 로그인',
+      },
+    });
+    await bootstrapProjectMap(prisma, { input: replacementMap(projectId) });
+    await approveInitialFeatureMap(prisma, { projectId, userId });
+
+    const after = await prisma.changeProposal.findUniqueOrThrow({ where: { id: proposal.id } });
+    expect(after.status).toBe('REJECTED');
+    expect(
+      await prisma.inboxItem.count({ where: { changeProposalId: proposal.id, status: 'OPEN' } }),
+    ).toBe(0);
+    // 옛 이름 그대로 (적용 안 됨)
+    const feature = await prisma.featureNode.findUniqueOrThrow({ where: { id: oldFeature.id } });
+    expect(feature.name).toBe('로그인');
+  });
+
+  it('B8: 종료된 기능을 대상으로 한 제안은 승인 시점에 거부된다', async () => {
+    const { projectId, userId } = await approvedProject();
+    const target = await prisma.featureNode.findFirstOrThrow({
+      where: { projectId, name: '로그인' },
+    });
+    const proposal = await createProposal(prisma, {
+      input: {
+        projectId,
+        type: 'RENAME',
+        reason: 'r',
+        targetFeatureIds: [target.id],
+        newName: '새 이름',
+      },
+    });
+    // 제안 생성 후 대상이 종료됨 (지도 교체와 무관한 경로로도 가능)
+    await prisma.featureNode.update({
+      where: { id: target.id },
+      data: { lifecycle: 'RETIRED', retiredAt: new Date() },
+    });
+    await expect(
+      approveProposal(prisma, { projectId, userId, proposalId: proposal.id }),
+    ).rejects.toThrow(/이미 종료/);
+  });
+
+  it('B9: 재부트스트랩은 초안에 붙었던 질문/Inbox/작업 기록을 잃지 않는다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    await bootstrapProjectMap(prisma, { input: sampleMap(projectId) });
+    const draft = await prisma.featureNode.findFirstOrThrow({
+      where: { projectId, name: '로그인', lifecycle: 'DRAFT' },
+    });
+    const record = await recordWorkUpdate(prisma, {
+      input: {
+        projectId,
+        featureIds: [draft.id],
+        summary: '초안 단계에서 한 작업',
+        changedFiles: ['src/auth/login.ts'],
+        tests: { status: 'FAILED', failed: 1 },
+        openQuestions: ['초안 단계 질문'],
+      },
+    });
+
+    // 재부트스트랩 → 초안 노드는 교체되지만 사용자 데이터는 보존
+    await bootstrapProjectMap(prisma, { input: sampleMap(projectId) });
+
+    const questions = await prisma.openQuestion.findMany({
+      where: { projectId, status: 'OPEN' },
+    });
+    expect(questions).toHaveLength(1);
+    expect(questions[0]?.featureNodeId).toBeNull();
+
+    const failures = await prisma.inboxItem.findMany({
+      where: { projectId, type: 'TEST_FAILURE' },
+    });
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.featureNodeId).toBeNull();
+
+    // 링크를 전부 잃은 작업 기록은 untracked로 재분류된다
+    expect(
+      await prisma.inboxItem.count({
+        where: { projectId, type: 'UNTRACKED_CHANGE', workUpdateId: record.workUpdate.id },
+      }),
+    ).toBe(1);
+    // 작업 기록 본체는 그대로
+    expect(
+      await prisma.workUpdate.count({ where: { id: record.workUpdate.id } }),
+    ).toBe(1);
   });
 
   it('B6: 승인 없이 초안만 있으면 아무 것도 교체되지 않는다 (조회 안정성)', async () => {

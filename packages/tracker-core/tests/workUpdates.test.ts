@@ -171,6 +171,21 @@ describe('record_work_update', () => {
     ).toBe(1);
   });
 
+  it('미래 시각의 occurredAt은 거부된다 (타임존 실수 방지)', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    const feature = await activeFeature(projectId, '로그인');
+    await expect(
+      recordWorkUpdate(prisma, {
+        input: {
+          projectId,
+          featureIds: [feature.id],
+          summary: '미래 기록 시도',
+          occurredAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        },
+      }),
+    ).rejects.toThrow(/미래 시각/);
+  });
+
   it('openQuestions와 nextTask가 저장된다', async () => {
     const { projectId } = await createUserAndProject(prisma);
     const feature = await activeFeature(projectId, '검색');

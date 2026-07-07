@@ -10,6 +10,7 @@ export * from './services/proposals.js';
 export * from './services/workUpdates.js';
 export * from './services/nextTask.js';
 export * from './services/context.js';
+export * from './services/predicates.js';
 export * from './services/inbox.js';
 export * from './services/activity.js';
 export * from './services/jobs.js';

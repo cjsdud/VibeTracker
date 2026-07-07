@@ -42,7 +42,8 @@ function TreeNodes({
             >
               {node.name}
             </span>
-            {node.lifecycle === 'ACTIVE' && node.children.length > 0 ? (
+            {node.lifecycle === 'ACTIVE' &&
+            node.children.some((c) => c.lifecycle !== 'RETIRED') ? (
               <SubtreeRollup node={node} />
             ) : (
               <StatusBadge status={node.displayStatus} />

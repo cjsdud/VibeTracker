@@ -17,7 +17,13 @@ export function DashboardPage({ project }: { project: ProjectDto }) {
   const dashboard = useDashboard(project.id);
   const data = dashboard.data;
   const tree = useFeatureTree(project.id);
-  const summary = summarizeFeatures(tree.data?.tree ?? []);
+  const nodes = tree.data?.tree ?? [];
+  // 지도 교체 검토 중(초안이 기존 지도와 공존)에는 초안을 요약에서 제외해 이중 집계를 막는다.
+  // 첫 온보딩(활성 지도 없음)에는 초안(승인 대기)을 그대로 보여준다.
+  const hasActive = nodes.some((n) => n.lifecycle === 'ACTIVE');
+  const summary = summarizeFeatures(
+    hasActive ? nodes.filter((n) => n.lifecycle !== 'DRAFT') : nodes,
+  );
 
   return (
     <>

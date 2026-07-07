@@ -29,7 +29,11 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
   const tokens = useMcpTokens(project?.id ?? null);
   const createToken = useCreateToken(project?.id ?? '');
   const [plaintext, setPlaintext] = useState<string | null>(null);
-  const [repoSkipped, setRepoSkipped] = useState(false);
+  // 새로고침해도 2단계로 되돌아가지 않도록 프로젝트 단위로 세션에 보존한다
+  const [repoSkippedLocal, setRepoSkippedLocal] = useState(false);
+  const skipKey = project ? `vt_repo_skipped_${project.id}` : null;
+  const repoSkipped =
+    repoSkippedLocal || (!!skipKey && sessionStorage.getItem(skipKey) === '1');
   const setup = useClaudeSetup(project?.id ?? null);
   const tree = useFeatureTree(project?.id ?? null);
 
@@ -144,7 +148,10 @@ export function OnboardingPage({ project }: { project: ProjectDto | null }) {
             <button
               className="btn"
               style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}
-              onClick={() => setRepoSkipped(true)}
+              onClick={() => {
+                if (skipKey) sessionStorage.setItem(skipKey, '1');
+                setRepoSkippedLocal(true);
+              }}
             >
               나중에 연결하기 (건너뛰기)
             </button>

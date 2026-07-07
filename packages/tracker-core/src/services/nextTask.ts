@@ -1,5 +1,6 @@
 import { type NextTaskDto } from '@vibetrack/shared';
 import { type Db } from '../db.js';
+import { needsVerificationWhere } from './predicates.js';
 
 /**
  * get_next_task: 규칙 기반으로 지금 가장 우선인 작업 1개를 고른다. LLM을 쓰지 않는다.
@@ -43,14 +44,10 @@ export async function getNextTask(db: Db, projectId: string): Promise<NextTaskDt
     };
   }
 
-  // 2. 핵심 기능 검증 필요
+  // 2. 핵심 기능 검증 필요 (표시 상태의 "검증 필요"와 같은 정의:
+  //    구현됐지만 아직 확인 없음 — bootstrap 직후의 UNKNOWN도 포함)
   const needsVerify = await db.featureNode.findFirst({
-    where: {
-      projectId,
-      lifecycle: 'ACTIVE',
-      isCore: true,
-      verificationStatus: 'NEEDS_VERIFICATION',
-    },
+    where: { projectId, isCore: true, ...needsVerificationWhere },
     orderBy: { lastChangedAt: 'desc' },
   });
   if (needsVerify) {

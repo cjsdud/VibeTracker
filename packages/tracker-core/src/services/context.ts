@@ -16,6 +16,7 @@ import {
 } from '../dto.js';
 import { requireFeature } from './featureTree.js';
 import { getNextTask } from './nextTask.js';
+import { needsVerificationWhere } from './predicates.js';
 
 const workUpdateInclude = {
   features: { include: { featureNode: { select: { id: true, name: true } } } },
@@ -33,13 +34,7 @@ export async function getDashboardCounts(db: Db, projectId: string): Promise<Das
   ] = await Promise.all([
     db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE', isCore: true } }),
     db.featureNode.count({ where: { projectId, lifecycle: 'ACTIVE' } }),
-    db.featureNode.count({
-      where: {
-        projectId,
-        lifecycle: 'ACTIVE',
-        verificationStatus: { in: ['NEEDS_VERIFICATION', 'FAILED'] },
-      },
-    }),
+    db.featureNode.count({ where: { projectId, ...needsVerificationWhere } }),
     db.changeProposal.count({ where: { projectId, status: 'PENDING' } }),
     db.inboxItem.count({ where: { projectId, type: 'UNTRACKED_CHANGE', status: 'OPEN' } }),
     db.openQuestion.count({ where: { projectId, status: 'OPEN' } }),
@@ -133,11 +128,7 @@ export async function getProjectContext(
       getDashboardCounts(db, projectId),
       getRecentWorkUpdates(db, projectId, 5),
       db.featureNode.findMany({
-        where: {
-          projectId,
-          lifecycle: 'ACTIVE',
-          verificationStatus: { in: ['NEEDS_VERIFICATION', 'FAILED'] },
-        },
+        where: { projectId, ...needsVerificationWhere },
         select: { id: true, name: true, isCore: true },
         orderBy: [{ isCore: 'desc' }, { lastChangedAt: 'desc' }],
         take: 10,

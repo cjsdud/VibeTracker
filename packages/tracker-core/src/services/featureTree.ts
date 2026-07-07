@@ -92,13 +92,58 @@ export async function bootstrapProjectMap(
   const { input } = params;
 
   return prisma.$transaction(async (tx) => {
+    // 구조 변경 경로(부트스트랩/지도 승인/제안 승인)를 프로젝트 단위로 직렬화한다
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.projectId}, 0))`;
+
     const activeCount = await tx.featureNode.count({
       where: { projectId: input.projectId, lifecycle: 'ACTIVE' },
     });
     const replacesActiveMap = activeCount > 0;
 
-    // 재부트스트랩: 기존 초안 제거 (승인된 적 없는 데이터만 삭제된다)
-    await tx.featureNode.deleteMany({ where: { projectId: input.projectId, lifecycle: 'DRAFT' } });
+    // 재부트스트랩: 기존 초안 노드를 새 초안으로 교체한다.
+    // 초안에 이미 붙은 사용자 데이터(미해결 질문, Inbox 항목, 작업 기록)는 잃지 않도록
+    // 먼저 분리/재분류한 뒤 노드를 지운다.
+    const drafts = await tx.featureNode.findMany({
+      where: { projectId: input.projectId, lifecycle: 'DRAFT' },
+      select: { id: true },
+    });
+    if (drafts.length > 0) {
+      const draftIds = drafts.map((d) => d.id);
+      await tx.openQuestion.updateMany({
+        where: { featureNodeId: { in: draftIds } },
+        data: { featureNodeId: null },
+      });
+      await tx.inboxItem.updateMany({
+        where: { featureNodeId: { in: draftIds } },
+        data: { featureNodeId: null },
+      });
+      // 초안에만 연결돼 있던 작업 기록은 링크가 사라지므로 추적되지 않은 작업으로 재분류한다
+      const draftLinks = await tx.workUpdateFeature.findMany({
+        where: { featureNodeId: { in: draftIds } },
+        select: { workUpdateId: true },
+      });
+      for (const workUpdateId of new Set(draftLinks.map((l) => l.workUpdateId))) {
+        const remaining = await tx.workUpdateFeature.count({
+          where: { workUpdateId, featureNodeId: { notIn: draftIds } },
+        });
+        if (remaining > 0) continue;
+        const existing = await tx.inboxItem.findFirst({
+          where: { projectId: input.projectId, type: 'UNTRACKED_CHANGE', workUpdateId },
+        });
+        if (existing) continue;
+        const update = await tx.workUpdate.findUniqueOrThrow({ where: { id: workUpdateId } });
+        await tx.inboxItem.create({
+          data: {
+            projectId: input.projectId,
+            type: 'UNTRACKED_CHANGE',
+            title: `추적되지 않은 작업: ${update.summary.slice(0, 80)}`,
+            workUpdateId,
+            detail: { reason: '연결됐던 초안 기능이 재등록으로 교체됨' },
+          },
+        });
+      }
+      await tx.featureNode.deleteMany({ where: { id: { in: draftIds } } });
+    }
     await tx.inboxItem.updateMany({
       where: { projectId: input.projectId, type: 'FEATURE_MAP_REVIEW', status: 'OPEN' },
       data: {
@@ -211,6 +256,8 @@ export async function approveInitialFeatureMap(
   params: { projectId: string; userId: string },
 ): Promise<{ tree: FeatureNodeDto[]; version: number; retiredCount: number }> {
   return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${params.projectId}, 0))`;
+
     const draftCount = await tx.featureNode.count({
       where: { projectId: params.projectId, lifecycle: 'DRAFT' },
     });
@@ -226,6 +273,29 @@ export async function approveInitialFeatureMap(
       where: { projectId: params.projectId, lifecycle: 'DRAFT' },
       data: { lifecycle: 'ACTIVE' },
     });
+    // 옛 지도를 기준으로 만들어진 승인 대기 제안은 더 이상 적용할 수 없으므로 만료시킨다
+    if (retired.count > 0) {
+      const stale = await tx.changeProposal.findMany({
+        where: { projectId: params.projectId, status: 'PENDING' },
+        select: { id: true },
+      });
+      if (stale.length > 0) {
+        const staleIds = stale.map((p) => p.id);
+        await tx.changeProposal.updateMany({
+          where: { id: { in: staleIds } },
+          data: { status: 'REJECTED', decidedAt: new Date(), decidedByUserId: params.userId },
+        });
+        await tx.inboxItem.updateMany({
+          where: { changeProposalId: { in: staleIds }, status: 'OPEN' },
+          data: {
+            status: 'RESOLVED',
+            resolvedAt: new Date(),
+            resolvedByUserId: params.userId,
+            resolutionNote: '기능 지도 교체로 만료됨',
+          },
+        });
+      }
+    }
     const version = await createTreeVersion(tx, {
       projectId: params.projectId,
       cause: 'BOOTSTRAP_APPROVED',

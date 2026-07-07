@@ -470,7 +470,8 @@ model InboxItem {
   project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   changeProposal ChangeProposal? @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
   githubEvent    GithubEvent?    @relation(fields: [githubEventId], references: [id], onDelete: Cascade)
-  featureNode    FeatureNode?    @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+  // 기능 노드가 지워져도(초안 재등록 등) 사용자 확인 항목은 사라지면 안 된다
+  featureNode    FeatureNode?    @relation(fields: [featureNodeId], references: [id], onDelete: SetNull)
   workUpdate     WorkUpdate?     @relation(fields: [workUpdateId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status, createdAt])
@@ -493,7 +494,8 @@ model OpenQuestion {
   resolvedAt    DateTime?
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  featureNode FeatureNode? @relation(fields: [featureNodeId], references: [id], onDelete: Cascade)
+  // 기능 노드가 지워져도 미해결 질문은 프로젝트에 남는다
+  featureNode FeatureNode? @relation(fields: [featureNodeId], references: [id], onDelete: SetNull)
   workUpdate  WorkUpdate?  @relation(fields: [workUpdateId], references: [id], onDelete: Cascade)
 
   @@index([projectId, status])

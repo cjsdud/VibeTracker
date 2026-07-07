@@ -120,6 +120,18 @@ describe('summarizeFeatures (진행 요약)', () => {
     expect(summary.counts.PLANNED).toBe(1);
   });
 
+  it('종료된 부모 아래의 살아있는 자식도 집계한다', () => {
+    const summary = summarizeFeatures([
+      {
+        displayStatus: 'RETIRED',
+        lifecycle: 'RETIRED',
+        children: [leaf('IMPLEMENTED'), leaf('PLANNED')],
+      } as never,
+    ]);
+    expect(summary.total).toBe(2);
+    expect(summary.done).toBe(1);
+  });
+
   it('자식이 전부 종료된 부모는 leaf로 취급한다', () => {
     const summary = summarizeFeatures([
       {

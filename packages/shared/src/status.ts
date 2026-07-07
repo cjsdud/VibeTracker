@@ -131,10 +131,10 @@ export function summarizeFeatures(nodes: TreeLike[]): StatusSummary {
   };
   const walk = (list: TreeLike[]): void => {
     for (const node of list) {
-      if (node.lifecycle === 'RETIRED') continue;
+      // 종료된 노드 자체는 세지 않지만, 그 아래 살아있는 자식은 계속 집계한다
       if (node.children.filter((c) => c.lifecycle !== 'RETIRED').length > 0) {
         walk(node.children);
-      } else {
+      } else if (node.lifecycle !== 'RETIRED') {
         counts[node.displayStatus] += 1;
       }
     }

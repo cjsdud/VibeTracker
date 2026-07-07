@@ -152,7 +152,12 @@ async function createNodeFromProposal(
   const parentId = node.parentFeatureId !== undefined ? node.parentFeatureId : fallbackParentId;
   // 승인 시점에 부모의 존재와 프로젝트 소속을 반드시 재검증한다 (교차 프로젝트/오타 방지)
   if (parentId) {
-    await requireFeature(db, projectId, parentId);
+    const parent = await requireFeature(db, projectId, parentId);
+    if (parent.lifecycle === 'RETIRED') {
+      throw new ValidationError(
+        '부모 기능이 이미 종료되었습니다. 지도가 교체된 경우 새 지도 기준으로 다시 제안하세요.',
+      );
+    }
   }
   const siblingCount = await db.featureNode.count({ where: { projectId, parentId } });
   return db.featureNode.create({
@@ -181,6 +186,9 @@ export async function approveProposal(
   params: { projectId: string; userId: string; proposalId: string },
 ): Promise<{ proposal: ChangeProposal; version: number }> {
   return prisma.$transaction(async (tx) => {
+    // 구조 변경 경로를 프로젝트 단위로 직렬화한다 (지도 승인과의 경쟁 방지)
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${params.projectId}, 0))`;
+
     const proposal = await tx.changeProposal.findFirst({
       where: { id: params.proposalId, projectId: params.projectId },
     });
@@ -198,6 +206,14 @@ export async function approveProposal(
     const targets: FeatureNode[] = [];
     for (const id of proposal.targetFeatureIds) {
       targets.push(await requireFeature(tx, params.projectId, id));
+    }
+    // 제안 생성 이후 지도가 교체됐다면 대상이 이미 종료됐을 수 있다 — 옛 지도에 적용 금지
+    for (const target of targets) {
+      if (target.lifecycle === 'RETIRED') {
+        throw new ConflictError(
+          `대상 기능 "${target.name}"이(가) 이미 종료되었습니다. 지도가 교체된 경우 새 지도 기준으로 다시 제안하세요.`,
+        );
+      }
     }
 
     switch (proposal.type) {
@@ -221,7 +237,10 @@ export async function approveProposal(
         if (!target) throw new ValidationError('이동 대상이 없습니다.');
         const newParentId = payload.newParentFeatureId;
         if (newParentId) {
-          await requireFeature(tx, params.projectId, newParentId);
+          const newParent = await requireFeature(tx, params.projectId, newParentId);
+          if (newParent.lifecycle === 'RETIRED') {
+            throw new ValidationError('이동할 부모 기능이 이미 종료되었습니다.');
+          }
           await assertNotDescendant(tx, params.projectId, target.id, newParentId);
         }
         const siblingCount = await tx.featureNode.count({

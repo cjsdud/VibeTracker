@@ -1,6 +1,6 @@
 import { type RecordWorkUpdateInput, type WorkUpdateSource } from '@vibetrack/shared';
 import { type FeatureNode, type PrismaClient, type WorkUpdate } from '../db.js';
-import { NotFoundError } from '../errors.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import { writeAudit } from './audit.js';
 import { upsertEvidence } from './evidence.js';
 
@@ -51,6 +51,11 @@ export async function recordWorkUpdate(
     // 과거 세션 소급 기록(occurredAt): 타임라인/증거/질문만 남기고
     // 현재 기능 상태(구현/검증)는 변경하지 않는다. 그 사이 상황이 이미 달라졌을 수 있다.
     const occurredAt = input.occurredAt ? new Date(input.occurredAt) : null;
+    if (occurredAt !== null && occurredAt.getTime() > Date.now() + 60_000) {
+      throw new ValidationError(
+        'occurredAt이 미래 시각입니다. 과거 세션 소급 기록에만 사용하세요 (타임존 확인: UTC ISO 8601).',
+      );
+    }
     const isHistorical = occurredAt !== null && occurredAt.getTime() < Date.now() - 60_000;
 
     const workUpdate = await tx.workUpdate.create({
