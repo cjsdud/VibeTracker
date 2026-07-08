@@ -1,6 +1,7 @@
 import { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  buildBriefing,
   getDashboardCounts,
   getNextTask,
   getRecentWorkUpdates,
@@ -108,6 +109,14 @@ export async function projectRoutes(
     await prisma.project.delete({ where: { id: projectId } });
     await writeAudit(prisma, { userId: user.id, action: 'project.deleted', entityId: projectId });
     return { ok: true };
+  });
+
+  // 복귀 브리핑: 경과 시간·지난 작업·검증 필요·최근 코드 변경·문제 있음 (사실 나열만)
+  app.get('/api/projects/:projectId/briefing', async (request) => {
+    const user = await requireUser(prisma, request);
+    const { projectId } = request.params as { projectId: string };
+    await requireProjectAccess(prisma, projectId, user.id);
+    return { briefing: await buildBriefing(prisma, projectId) };
   });
 
   // 대시보드: 상태 요약 + 다음 작업 1개 + 최근 작업 3개

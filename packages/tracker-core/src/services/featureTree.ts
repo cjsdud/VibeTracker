@@ -409,6 +409,10 @@ export async function updateFeatureManual(
         isCore: params.isCore ?? undefined,
         implementationStatus: params.implementationStatus ?? undefined,
         verificationStatus: params.verificationStatus ?? undefined,
+        // 사용자가 직접 상태를 고친 것은 출처를 남긴다 (트리 신뢰도 디버깅)
+        ...(params.implementationStatus || params.verificationStatus
+          ? { lastStatusSource: 'USER_MANUAL' as const }
+          : {}),
         ...(params.retire === true
           ? { lifecycle: 'RETIRED' as const, retiredAt: node.retiredAt ?? new Date() }
           : {}),

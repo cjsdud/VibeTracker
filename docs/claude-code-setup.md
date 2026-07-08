@@ -126,7 +126,26 @@ bootstrap 프롬프트가 히스토리 연결까지 지시하므로 보통은 �
 - VibeTrack이 대화 로그를 직접 읽는 것이 아니라, 사용자의 Claude Code가 읽고 판단해서
   기록한다 (제품 원칙: VibeTrack 자체 LLM 없음)
 
-## 6. 연결 확인
+## 6. 복귀 브리핑 자동 주입 (SessionStart 훅, 권장)
+
+CLAUDE.md에 "세션 시작 시 get_project_context를 호출하라"고 적는 방식은 준수율이
+보장되지 않는다. 설정 화면의 설치 명령을 프로젝트 루트에서 **한 번** 실행하면:
+
+```bash
+curl -fsSL https://<앱 도메인>/hook/install.mjs -o /tmp/vibetrack-install.mjs \
+  && node /tmp/vibetrack-install.mjs
+```
+
+- `.claude/hooks/vibetrack-briefing.mjs`가 설치되고 `.claude/settings.json`에
+  SessionStart 훅이 등록된다 (기존 설정 보존, 중복 등록 방지)
+- 매 세션 시작 시 복귀 브리핑(경과 시간 · 지난 작업 요약 · 검증 필요 목록 ·
+  최근 코드 변경 · 문제 있음 목록)이 세션 컨텍스트에 자동 주입된다
+- 훅은 `.mcp.json`의 vibetrack 항목에서 서버 주소와 토큰을 읽는다 — 별도 시크릿 불필요
+- 네트워크 오류·토큰 만료 등 어떤 실패에도 조용히 스킵한다 — 세션을 막지 않는다
+- 브리핑은 사실 나열만 한다("검증 필요 상태인 기능: X, Y"). 무엇을 할지는
+  브리핑을 받은 Claude Code가 세션 안에서 판단한다
+
+## 7. 연결 확인
 
 - 설정 화면의 "연결 상태"는 해당 프로젝트 토큰으로 MCP 요청이 마지막으로 들어온 시각
   (`lastUsedAt`)을 보여준다.

@@ -101,6 +101,15 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
               5번은 기능 지도 승인 후에 실행하세요. 과거 세션 로그를 읽어 작업 타임라인과 미해결
               질문을 소급 복원합니다. 현재 기능 상태는 바꾸지 않습니다.
             </p>
+            <CopyBlock
+              label="6) 복귀 브리핑 자동 주입 설치 (권장, 프로젝트 루트에서 한 번 실행)"
+              text={setupData.hookInstallCommand}
+            />
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
+              6번을 실행하면 Claude Code의 SessionStart 훅이 등록되어, 매 세션 시작 시 복귀
+              브리핑(경과 시간·지난 작업·검증 필요·최근 코드 변경·문제 있음)이 자동으로
+              주입됩니다. 훅이 실패해도 세션은 정상 진행됩니다(조용히 스킵).
+            </p>
           </>
         )}
       </div>

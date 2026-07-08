@@ -128,7 +128,14 @@ describe('MCP tools', () => {
       }),
     );
     expect(context.featureTreeSummary).toContain('로그인');
-    expect((context.nextTask as { kind: string }).kind).toBe('REVIEW_FEATURE_MAP');
+    // get_project_context는 복귀 브리핑 구조를 반환한다 — 추천(nextTask)은 없다
+    const briefing = context.briefing as {
+      briefingText: string;
+      needsVerification: unknown[];
+      recentWork: { basis: string };
+    };
+    expect(briefing.briefingText).toContain('복귀 브리핑');
+    expect('nextTask' in context).toBe(false);
 
     // DRAFT 상태에서도 기록은 가능하다
     const node = await prisma.featureNode.findFirstOrThrow({

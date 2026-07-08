@@ -2,6 +2,7 @@ import { type RecordWorkUpdateInput, type WorkUpdateSource } from '@vibetrack/sh
 import { type FeatureNode, type PrismaClient, type WorkUpdate } from '../db.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { writeAudit } from './audit.js';
+import { upsertBranchActivity } from './branchActivity.js';
 import { upsertEvidence } from './evidence.js';
 
 export interface RecordWorkUpdateResult {
@@ -11,6 +12,8 @@ export interface RecordWorkUpdateResult {
   verificationApplied: string | null;
   /** occurredAt으로 소급 기록된 경우 true (상태 변경 없음) */
   historical: boolean;
+  /** 기본 브랜치가 아닌 브랜치 작업이라 "작업 중 변경"으로만 기록된 경우 true */
+  branchOnly: boolean;
 }
 
 /**
@@ -58,6 +61,16 @@ export async function recordWorkUpdate(
     }
     const isHistorical = occurredAt !== null && occurredAt.getTime() < Date.now() - 60_000;
 
+    // 브랜치 상태 분리: 기본 브랜치가 아닌 브랜치의 작업은 공식 상태(FeatureNode)를
+    // 바꾸지 않고 "작업 중 변경"(FeatureBranchActivity)으로만 기록한다.
+    // 공식 상태는 PR이 기본 브랜치에 머지될 때 GitHub 이벤트가 승격한다.
+    const repository = await tx.repository.findUnique({
+      where: { projectId: input.projectId },
+      select: { defaultBranch: true },
+    });
+    const defaultBranch = repository?.defaultBranch ?? 'main';
+    const isBranchOnly = Boolean(input.branch) && input.branch !== defaultBranch && !isHistorical;
+
     const workUpdate = await tx.workUpdate.create({
       data: {
         projectId: input.projectId,
@@ -65,6 +78,8 @@ export async function recordWorkUpdate(
         summary: input.summary,
         changedFiles,
         gitHeadSha: input.gitHeadSha ?? null,
+        commitShas: input.commitShas ?? [],
+        branch: input.branch ?? null,
         testsStatus,
         testsPassed: input.tests?.passed ?? null,
         testsFailed: input.tests?.failed ?? null,
@@ -82,26 +97,43 @@ export async function recordWorkUpdate(
     else if (input.manualCheck) verification = 'MANUAL_VERIFIED';
     else if (testsStatus === 'PASSED') verification = 'PASSED';
     else if (changedFiles.length > 0) verification = 'NEEDS_VERIFICATION';
-    if (isHistorical) verification = null;
+    if (isHistorical || isBranchOnly) verification = null;
 
     const now = new Date();
     // 코드 변경이 없는 기록(리뷰만, 검증만)은 구현 상태를 건드리지 않는다
     const hasCodeChange = changedFiles.length > 0;
     for (const feature of features) {
-      const implementation = isHistorical
-        ? null
-        : (input.implementationStatus ??
-          (hasCodeChange
-            ? feature.implementationStatus === 'NOT_STARTED'
-              ? 'PARTIAL'
-              : 'CHANGED'
-            : null));
+      // 브랜치 작업: 공식 상태 대신 "작업 중 변경"으로 기록
+      if (isBranchOnly) {
+        await upsertBranchActivity(tx, {
+          projectId: input.projectId,
+          featureNodeId: feature.id,
+          branch: input.branch!,
+          source: 'MCP_RECORD',
+          summary: input.summary.slice(0, 300),
+          lastCommitSha: input.gitHeadSha ?? input.commitShas?.at(-1) ?? null,
+          ...(testsStatus === 'FAILED'
+            ? { ciFailed: true }
+            : testsStatus === 'PASSED'
+              ? { ciFailed: false }
+              : {}),
+        });
+      }
+      const implementation =
+        isHistorical || isBranchOnly
+          ? null
+          : (input.implementationStatus ??
+            (hasCodeChange
+              ? feature.implementationStatus === 'NOT_STARTED'
+                ? 'PARTIAL'
+                : 'CHANGED'
+              : null));
       // 소급 기록은 lastChangedAt을 뒤로 돌리지 않되, 비어 있거나 더 오래됐으면 채워준다
       const lastChangedAt = isHistorical
         ? !feature.lastChangedAt || feature.lastChangedAt < occurredAt
           ? occurredAt
           : null
-        : hasCodeChange || implementation
+        : !isBranchOnly && (hasCodeChange || implementation)
           ? now
           : null;
       await tx.featureNode.update({
@@ -109,6 +141,8 @@ export async function recordWorkUpdate(
         data: {
           ...(implementation ? { implementationStatus: implementation } : {}),
           ...(verification ? { verificationStatus: verification } : {}),
+          // 공식 상태(구현/검증)가 바뀔 때만 출처를 기록한다
+          ...(implementation || verification ? { lastStatusSource: 'MCP_RECORD' as const } : {}),
           ...(lastChangedAt ? { lastChangedAt } : {}),
         },
       });
@@ -159,8 +193,9 @@ export async function recordWorkUpdate(
           },
         });
       }
-      // 과거의 테스트 실패는 이미 해결됐을 수 있으므로 Inbox 알림을 만들지 않는다
-      if (testsStatus === 'FAILED' && !isHistorical) {
+      // 과거의 테스트 실패는 이미 해결됐을 수 있으므로 Inbox 알림을 만들지 않는다.
+      // 브랜치 작업의 실패는 공식 문제가 아니라 브랜치 활동의 CI 실패 플래그로만 남는다.
+      if (testsStatus === 'FAILED' && !isHistorical && !isBranchOnly) {
         await tx.inboxItem.create({
           data: {
             projectId: input.projectId,
@@ -214,6 +249,9 @@ export async function recordWorkUpdate(
         testsStatus,
         untracked,
         historical: isHistorical,
+        branchOnly: isBranchOnly,
+        branch: input.branch ?? null,
+        source: 'MCP_RECORD',
       },
     });
 
@@ -223,6 +261,7 @@ export async function recordWorkUpdate(
       untracked,
       verificationApplied: verification,
       historical: isHistorical,
+      branchOnly: isBranchOnly,
     };
   });
 }

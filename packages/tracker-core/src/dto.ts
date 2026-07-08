@@ -1,5 +1,6 @@
 import {
   deriveDisplayStatus,
+  type BranchActivityDto,
   type ChangeProposalDto,
   type FeatureEvidenceDto,
   type FeatureNodeDto,
@@ -10,6 +11,7 @@ import {
 } from '@vibetrack/shared';
 import {
   type ChangeProposal,
+  type FeatureBranchActivity,
   type FeatureEvidence,
   type FeatureNode,
   type InboxItem,
@@ -136,6 +138,21 @@ export function toOpenQuestionDto(question: OpenQuestion): OpenQuestionDto {
     status: question.status,
     featureNodeId: question.featureNodeId,
     createdAt: question.createdAt.toISOString(),
+  };
+}
+
+export function toBranchActivityDto(activity: FeatureBranchActivity): BranchActivityDto {
+  return {
+    id: activity.id,
+    featureNodeId: activity.featureNodeId,
+    branch: activity.branch,
+    summary: activity.summary,
+    lastCommitSha: activity.lastCommitSha,
+    prNumber: activity.prNumber,
+    prState: activity.prState,
+    ciFailed: activity.ciFailed,
+    source: activity.source,
+    updatedAt: activity.updatedAt.toISOString(),
   };
 }
 

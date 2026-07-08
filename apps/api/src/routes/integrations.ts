@@ -1,7 +1,12 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   ValidationError,
+  authenticateMcpToken,
+  buildBriefing,
   createMcpToken,
   listMcpTokens,
   requireProjectAccess,
@@ -11,6 +16,10 @@ import {
 import { type ClaudeSetupDto, type McpTokenDto } from '@vibetrack/shared';
 import { type AppContext } from '../app.js';
 import { requireUser } from '../auth/session.js';
+
+// apps/api/src/routes → 저장소 루트 (cwd와 무관하게 파일 기준으로 해석)
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const hookScriptsDir = resolve(repoRoot, 'scripts/claude-hooks');
 
 function toTokenDto(token: {
   id: string;
@@ -207,9 +216,27 @@ export async function integrationRoutes(
       claudeMdExample: buildClaudeMd(),
       bootstrapPrompt: buildBootstrapPrompt(projectId),
       historyImportPrompt: buildHistoryImportPrompt(projectId),
+      hookInstallCommand: `curl -fsSL ${baseUrl}/hook/install.mjs -o /tmp/vibetrack-install.mjs && node /tmp/vibetrack-install.mjs`,
     };
     return { setup };
   });
+
+  // 복귀 브리핑 (vtk_ 토큰 인증) — SessionStart 훅이 호출한다.
+  // 세션 쿠키가 아니라 프로젝트 범위 MCP 토큰으로 인증하므로 훅/스크립트에서 쓸 수 있다.
+  app.get('/api/briefing', async (request) => {
+    const header = request.headers.authorization;
+    const bearer = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
+    const auth = await authenticateMcpToken(prisma, bearer);
+    return { briefing: await buildBriefing(prisma, auth.project.id) };
+  });
+
+  // SessionStart 훅 스크립트 서빙 — 사용자 프로젝트에서 curl로 설치한다
+  for (const file of ['vibetrack-briefing.mjs', 'install.mjs']) {
+    app.get(`/hook/${file}`, async (_request, reply) => {
+      const content = await readFile(resolve(hookScriptsDir, file), 'utf8');
+      return reply.type('text/javascript; charset=utf-8').send(content);
+    });
+  }
 
   // GitHub 연동 상태
   app.get('/api/github/status', async () => ({

@@ -10,6 +10,7 @@ export type {
   FeatureNode,
   FeatureRelation,
   FeatureEvidence,
+  FeatureBranchActivity,
   WorkUpdate,
   WorkUpdateFeature,
   ChangeProposal,

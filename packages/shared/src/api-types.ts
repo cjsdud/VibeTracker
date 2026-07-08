@@ -1,4 +1,5 @@
 import {
+  type ChangeSource,
   type EvidenceType,
   type ImplementationStatus,
   type InboxItemStatus,
@@ -130,6 +131,20 @@ export interface VerificationRunDto {
   createdAt: string;
 }
 
+/** 기능별 "작업 중 변경"(브랜치 단위). 공식 상태(main 기준)와 분리된다. */
+export interface BranchActivityDto {
+  id: string;
+  featureNodeId: string;
+  branch: string;
+  summary: string | null;
+  lastCommitSha: string | null;
+  prNumber: number | null;
+  prState: string | null;
+  ciFailed: boolean;
+  source: ChangeSource;
+  updatedAt: string;
+}
+
 export interface FeatureDetailDto {
   node: Omit<FeatureNodeDto, 'children'>;
   parentName: string | null;
@@ -138,6 +153,8 @@ export interface FeatureDetailDto {
   openQuestions: OpenQuestionDto[];
   verificationRuns: VerificationRunDto[];
   relatedProposals: ChangeProposalDto[];
+  /** 공식 상태(node)와 별개인 브랜치별 작업 중 변경 */
+  branchActivities: BranchActivityDto[];
 }
 
 export interface ChangeProposalDto {
@@ -203,4 +220,57 @@ export interface ClaudeSetupDto {
   bootstrapPrompt: string;
   historyImportPrompt: string;
   addCommandExample: string;
+  /** SessionStart 훅 설치 명령 (프로젝트 루트에서 1회 실행) */
+  hookInstallCommand: string;
+}
+
+// ---------- 복귀 브리핑 ----------
+// 원칙: 사실 나열만. "지금 이걸 하라" 같은 추천/판단 문장을 만들지 않는다.
+// 사실은 틀릴 수 없지만 추천은 틀릴 수 있고, 틀린 추천은 브리핑 전체의 신뢰를 깎는다.
+
+export interface BriefingRecentWorkItem {
+  summary: string;
+  featureNames: string[];
+  testsStatus: 'PASSED' | 'FAILED' | 'NOT_RUN' | null;
+  occurredAt: string;
+  source: WorkUpdateSource;
+}
+
+export interface BriefingUnmergedBranch {
+  branch: string;
+  featureNames: string[];
+  prNumber: number | null;
+  prState: string | null;
+  ciFailed: boolean;
+  updatedAt: string;
+}
+
+export interface BriefingDto {
+  project: { id: string; name: string; goal: string | null };
+  repository: { fullName: string; defaultBranch: string } | null;
+  generatedAt: string;
+  /** 1. 경과 시간 */
+  elapsed: {
+    lastWorkRecordAt: string | null;
+    lastCommitAt: string | null;
+    daysSinceLastActivity: number | null;
+  };
+  /** 2. 지난 작업 요약 — MCP 기록 기반, 없으면 커밋 메시지 폴백 */
+  recentWork: {
+    basis: 'WORK_RECORDS' | 'COMMITS' | 'NONE';
+    items: BriefingRecentWorkItem[];
+  };
+  /** 3. 검증 필요 상태인 기능 (사실 나열) */
+  needsVerification: { id: string; name: string; isCore: boolean }[];
+  /** 4. 최근 코드 변경 */
+  recentCodeChanges: {
+    windowDays: number;
+    defaultBranchCommitCount: number;
+    latestCi: { status: 'PASSED' | 'FAILED'; name: string | null; at: string } | null;
+    unmergedBranches: BriefingUnmergedBranch[];
+  };
+  /** 5. 문제 있음 상태인 기능 + 연결된 미해결 질문 */
+  broken: { id: string; name: string; isCore: boolean; openQuestions: string[] }[];
+  /** 사람이 읽는 요약 텍스트 (대시보드/SessionStart 훅에서 재사용) */
+  briefingText: string;
 }

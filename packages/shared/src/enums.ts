@@ -108,6 +108,14 @@ export const WorkUpdateSource = {
 } as const;
 export type WorkUpdateSource = (typeof WorkUpdateSource)[keyof typeof WorkUpdateSource];
 
+/** 상태 전이/활동 기록의 출처 — 트리 신뢰도 디버깅용 */
+export const ChangeSource = {
+  GITHUB_WEBHOOK: 'GITHUB_WEBHOOK',
+  MCP_RECORD: 'MCP_RECORD',
+  USER_MANUAL: 'USER_MANUAL',
+} as const;
+export type ChangeSource = (typeof ChangeSource)[keyof typeof ChangeSource];
+
 export const TreeVersionCause = {
   BOOTSTRAP_APPROVED: 'BOOTSTRAP_APPROVED',
   PROPOSAL_APPLIED: 'PROPOSAL_APPLIED',

@@ -92,6 +92,21 @@ export const recordWorkUpdateInput = z.object({
   summary: z.string().min(1).max(4000).describe('작업 내용 요약'),
   changedFiles: z.array(z.string().min(1)).max(300).optional().describe('변경한 파일 경로 목록'),
   gitHeadSha: z.string().min(7).max(64).optional().describe('작업 종료 시점 git HEAD SHA'),
+  commitShas: z
+    .array(z.string().min(7).max(64))
+    .max(50)
+    .optional()
+    .describe(
+      '이 작업에서 만든 커밋 SHA 목록 (git log로 확인). GitHub push/PR/CI 이벤트와 같은 작업 단위로 병합하는 조인 키이므로 커밋을 만들었다면 반드시 전달하라.',
+    ),
+  branch: z
+    .string()
+    .min(1)
+    .max(255)
+    .optional()
+    .describe(
+      '작업한 git 브랜치 이름. 기본 브랜치(main)가 아니면 공식 상태 대신 "작업 중 변경"으로 기록된다.',
+    ),
   implementationStatus: z
     .enum(['PARTIAL', 'IMPLEMENTED', 'CHANGED'])
     .optional()

@@ -77,9 +77,9 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
   server.registerTool(
     'get_project_context',
     {
-      title: '프로젝트 맥락 조회',
+      title: '복귀 브리핑 (프로젝트 맥락 조회)',
       description:
-        '현재 프로젝트의 압축된 맥락을 반환한다: 목표, 기능 트리 요약(기능 ID 포함), 최근 작업, 검증 필요 기능, 미해결 질문, 승인 대기 제안, 다음 우선 작업. 작업을 시작할 때 가장 먼저 호출하라.',
+        '복귀 브리핑을 반환한다: 경과 시간(마지막 작업/커밋 이후), 지난 작업 요약(MCP 기록 없으면 커밋 기반), 검증 필요 기능 목록, 최근 코드 변경(main 커밋 수·CI 결과·main 미반영 브랜치), 문제 있음 기능과 미해결 질문. 사실 나열만 있고 추천은 없다 — 무엇을 할지는 이 브리핑을 보고 네가 판단하라. 기능 트리 요약(기능 ID 포함)과 승인 대기 제안도 포함된다. 작업을 시작할 때 가장 먼저 호출하라.',
       inputSchema: getProjectContextInput.shape,
     },
     async (args) => {
@@ -155,7 +155,7 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
     {
       title: '작업 결과 기록',
       description:
-        '작업을 마치기 전에 호출해 결과를 기록한다. 관련 기능의 타임라인/증거/검증 상태가 자동 갱신된다. 테스트 결과와 미해결 질문을 반드시 포함하라. 기능 구조를 바꾸는 요청은 이 도구가 아니라 propose_structure_change를 사용하라. 과거 세션을 소급 기록할 때는 occurredAt(ISO 시각)을 넣어라 — 타임라인만 남고 현재 상태는 바뀌지 않는다.',
+        '작업을 마치기 전에 호출해 결과를 기록한다. 관련 기능의 타임라인/증거/검증 상태가 자동 갱신된다. 테스트 결과와 미해결 질문을 반드시 포함하라. 커밋을 만들었다면 작업 커밋의 SHA를 commitShas로 함께 전달하라 — GitHub push/PR/CI 이벤트와 같은 작업 단위로 병합하는 조인 키다. 작업한 브랜치가 기본 브랜치(main)가 아니면 branch를 전달하라 — 공식 상태 대신 "작업 중 변경"으로 기록되고 PR 머지 시점에 공식 상태로 승격된다. 기능 구조를 바꾸는 요청은 이 도구가 아니라 propose_structure_change를 사용하라. 과거 세션을 소급 기록할 때는 occurredAt(ISO 시각)을 넣어라 — 타임라인만 남고 현재 상태는 바뀌지 않는다.',
       inputSchema: recordWorkUpdateInput.shape,
     },
     async (args) => {
@@ -168,9 +168,12 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
           linkedFeatures: result.linkedFeatures,
           verificationApplied: result.verificationApplied,
           untracked: result.untracked,
+          branchOnly: result.branchOnly,
           message: result.untracked
             ? '어떤 기능과도 연결되지 않아 Inbox에 추적되지 않은 변경으로 등록했습니다. 가능하면 featureIds를 지정하거나 새 기능이면 propose_structure_change를 사용하세요.'
-            : '작업이 기록되었습니다.',
+            : result.branchOnly
+              ? `브랜치(${input.branch}) 작업이라 "작업 중 변경"으로 기록했습니다. PR이 기본 브랜치에 머지되면 공식 상태로 승격됩니다.`
+              : '작업이 기록되었습니다.',
         });
       } catch (error) {
         return errorResult(error);

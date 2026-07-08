@@ -281,4 +281,227 @@ describe('GitHub event processor', () => {
       'SKIPPED',
     );
   });
+
+  it('push(main): MCP 기록이 하나도 없어도 상태 전이가 일어나고 출처가 남는다', async () => {
+    const { project, feature } = await setup();
+    const event = await insertEvent(project.id, 'push', {
+      ref: 'refs/heads/main',
+      commits: [
+        { id: SHA, message: 'fix', added: [], modified: ['src/auth/login.ts'], removed: [] },
+      ],
+    });
+    await processGithubEvent(prisma, event.id);
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.verificationStatus).toBe('NEEDS_VERIFICATION');
+    expect(after.lastStatusSource).toBe('GITHUB_WEBHOOK');
+    expect(await prisma.workUpdate.count({ where: { projectId: project.id } })).toBe(0);
+  });
+});
+
+// ---------- P2: 브랜치 상태와 공식(main) 상태 분리 ----------
+
+async function setupWithRepo() {
+  const base = await setup();
+  await prisma.repository.create({
+    data: {
+      projectId: base.project.id,
+      owner: 'demo',
+      name: 'app',
+      fullName: 'demo/app',
+      defaultBranch: 'main',
+    },
+  });
+  return base;
+}
+
+const BRANCH = 'feature/admin-auth-fix';
+
+async function pushToBranch(projectId: string, branch: string, files: string[], sha = SHA) {
+  const event = await insertEvent(projectId, 'push', {
+    ref: `refs/heads/${branch}`,
+    commits: [{ id: sha, message: '노출 조건 수정', added: [], modified: files, removed: [] }],
+  });
+  await processGithubEvent(prisma, event.id);
+  return event;
+}
+
+describe('P2: 브랜치 작업 중 변경 vs 공식 상태', () => {
+  beforeEach(resetDb);
+  afterAll(() => prisma.$disconnect());
+
+  it('feature 브랜치 push는 공식 상태를 바꾸지 않고 "작업 중 변경"으로만 기록한다', async () => {
+    const { project, feature } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts', 'scripts/tmp.ts']);
+
+    // 공식 상태 불변
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('IMPLEMENTED');
+    expect(after.verificationStatus).toBe('PASSED');
+    expect(after.lastStatusSource).toBeNull();
+
+    // 작업 중 변경 기록
+    const activity = await prisma.featureBranchActivity.findUniqueOrThrow({
+      where: { featureNodeId_branch: { featureNodeId: feature.id, branch: BRANCH } },
+    });
+    expect(activity.lastCommitSha).toBe(SHA);
+    expect(activity.source).toBe('GITHUB_WEBHOOK');
+    expect(activity.summary).toContain('노출 조건');
+
+    // 브랜치 push는 untracked Inbox를 만들지 않는다 (main 기준에서만 판단)
+    expect(
+      await prisma.inboxItem.count({ where: { projectId: project.id, type: 'UNTRACKED_CHANGE' } }),
+    ).toBe(0);
+  });
+
+  it('PR이 main에 머지되면 작업 중 변경이 공식 상태로 승격되고 정리된다', async () => {
+    const { project, feature } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts']);
+
+    const merged = await insertEvent(project.id, 'pull_request', {
+      action: 'closed',
+      pull_request: {
+        number: 12,
+        title: '관리자 권한 노출 조건 수정',
+        merged: true,
+        head: { sha: SHA, ref: BRANCH },
+      },
+    });
+    await processGithubEvent(prisma, merged.id);
+
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('CHANGED');
+    expect(after.verificationStatus).toBe('NEEDS_VERIFICATION');
+    expect(after.lastStatusSource).toBe('GITHUB_WEBHOOK');
+    // 작업 중 변경은 정리됐다
+    expect(
+      await prisma.featureBranchActivity.count({ where: { projectId: project.id } }),
+    ).toBe(0);
+    // PR 증거는 연결됐다
+    expect(
+      await prisma.featureEvidence.count({
+        where: { featureNodeId: feature.id, type: 'PULL_REQUEST', ref: '12' },
+      }),
+    ).toBe(1);
+  });
+
+  it('PR이 머지 없이 닫히면 작업 중 변경만 정리되고 공식 상태는 불변', async () => {
+    const { project, feature } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts']);
+
+    const closed = await insertEvent(project.id, 'pull_request', {
+      action: 'closed',
+      pull_request: { number: 13, merged: false, head: { sha: SHA, ref: BRANCH } },
+    });
+    await processGithubEvent(prisma, closed.id);
+
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('IMPLEMENTED');
+    expect(after.verificationStatus).toBe('PASSED');
+    expect(
+      await prisma.featureBranchActivity.count({ where: { projectId: project.id } }),
+    ).toBe(0);
+  });
+
+  it('브랜치가 삭제되면(delete 이벤트) 작업 중 변경이 정리된다', async () => {
+    const { project } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts']);
+    expect(await prisma.featureBranchActivity.count()).toBe(1);
+
+    const deleted = await insertEvent(project.id, 'delete', { ref: BRANCH, ref_type: 'branch' });
+    await processGithubEvent(prisma, deleted.id);
+    expect(await prisma.featureBranchActivity.count()).toBe(0);
+  });
+
+  it('PR 열림 이벤트는 브랜치 활동에 PR 번호/상태를 붙인다', async () => {
+    const { project, feature } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts']);
+    const opened = await insertEvent(project.id, 'pull_request', {
+      action: 'opened',
+      pull_request: { number: 14, title: 'PR', head: { sha: SHA, ref: BRANCH } },
+    });
+    await processGithubEvent(prisma, opened.id);
+    const activity = await prisma.featureBranchActivity.findUniqueOrThrow({
+      where: { featureNodeId_branch: { featureNodeId: feature.id, branch: BRANCH } },
+    });
+    expect(activity.prNumber).toBe(14);
+    expect(activity.prState).toBe('open');
+  });
+
+  it('feature 브랜치 CI 실패는 공식 상태가 아니라 브랜치 활동의 플래그로만 남는다', async () => {
+    const { project, feature } = await setupWithRepo();
+    await pushToBranch(project.id, BRANCH, ['src/auth/login.ts']);
+
+    const check = await insertEvent(project.id, 'workflow_run', {
+      action: 'completed',
+      workflow_run: { name: 'CI', head_sha: SHA, conclusion: 'failure', head_branch: BRANCH },
+    });
+    await processGithubEvent(prisma, check.id);
+
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.verificationStatus).toBe('PASSED'); // 공식 상태 불변
+    const activity = await prisma.featureBranchActivity.findFirstOrThrow({
+      where: { projectId: project.id, branch: BRANCH },
+    });
+    expect(activity.ciFailed).toBe(true);
+    expect(
+      await prisma.inboxItem.count({ where: { projectId: project.id, type: 'TEST_FAILURE' } }),
+    ).toBe(0);
+  });
+});
+
+// ---------- P3: 커밋 SHA 조인 중복 제거 ----------
+
+describe('P3: 같은 작업이 3중으로 들어와도 하나의 작업 단위로 병합된다', () => {
+  beforeEach(resetDb);
+  afterAll(() => prisma.$disconnect());
+
+  it('MCP 기록의 commitShas가 push 커밋과 일치하면 untracked를 만들지 않고 같은 기능에 연결한다', async () => {
+    const { project, feature } = await setup();
+    // 1) MCP 기록 (증거 파일과 겹치지 않는 새 파일을 선언)
+    await prisma.workUpdate.create({
+      data: {
+        projectId: project.id,
+        source: 'MCP',
+        summary: '점검 스크립트 추가',
+        changedFiles: ['scripts/check.ts'],
+        commitShas: [SHA],
+        features: { create: [{ featureNodeId: feature.id }] },
+      },
+    });
+    // 2) 같은 커밋의 push 이벤트
+    const push = await insertEvent(project.id, 'push', {
+      ref: 'refs/heads/main',
+      commits: [
+        { id: SHA, message: '점검 스크립트', added: ['scripts/check.ts'], modified: [], removed: [] },
+      ],
+    });
+    await processGithubEvent(prisma, push.id);
+
+    // 같은 작업 단위: 이미 기록된 파일이므로 untracked를 만들지 않는다
+    expect(
+      await prisma.inboxItem.count({ where: { projectId: project.id, type: 'UNTRACKED_CHANGE' } }),
+    ).toBe(0);
+    // SHA로 연결된 기능이 갱신되고 커밋 증거가 붙는다
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('CHANGED');
+    expect(
+      await prisma.featureEvidence.count({
+        where: { featureNodeId: feature.id, type: 'COMMIT', ref: SHA },
+      }),
+    ).toBe(1);
+
+    // 3) 같은 커밋의 CI 이벤트도 같은 기능으로 조인된다
+    const check = await insertEvent(project.id, 'check_run', {
+      action: 'completed',
+      check_run: { name: 'CI', head_sha: SHA, conclusion: 'success' },
+    });
+    await processGithubEvent(prisma, check.id);
+    expect(
+      (await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } }))
+        .verificationStatus,
+    ).toBe('PASSED');
+    expect(
+      await prisma.verificationRun.count({ where: { projectId: project.id, source: 'CI' } }),
+    ).toBe(1);
+  });
 });

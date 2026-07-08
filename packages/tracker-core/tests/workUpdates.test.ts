@@ -171,6 +171,76 @@ describe('record_work_update', () => {
     ).toBe(1);
   });
 
+  it('feature 브랜치 작업은 공식 상태를 바꾸지 않고 "작업 중 변경"으로만 기록된다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    await prisma.repository.create({
+      data: { projectId, owner: 'demo', name: 'app', fullName: 'demo/app', defaultBranch: 'main' },
+    });
+    const feature = await activeFeature(projectId, '관리자 권한', {
+      implementationStatus: 'IMPLEMENTED',
+      verificationStatus: 'PASSED',
+    });
+
+    const result = await recordWorkUpdate(prisma, {
+      input: {
+        projectId,
+        featureIds: [feature.id],
+        summary: '노출 조건 수정 중',
+        changedFiles: ['src/auth/admin.ts'],
+        branch: 'feature/admin-auth-fix',
+        commitShas: ['deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'],
+        tests: { status: 'FAILED', failed: 1 },
+      },
+    });
+    expect(result.branchOnly).toBe(true);
+    expect(result.verificationApplied).toBeNull();
+
+    // 공식 상태(main 기준) 불변
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('IMPLEMENTED');
+    expect(after.verificationStatus).toBe('PASSED');
+    expect(after.lastStatusSource).toBeNull();
+
+    // 작업 중 변경으로 기록 (테스트 실패는 브랜치 CI 실패 플래그로)
+    const activity = await prisma.featureBranchActivity.findUniqueOrThrow({
+      where: {
+        featureNodeId_branch: { featureNodeId: feature.id, branch: 'feature/admin-auth-fix' },
+      },
+    });
+    expect(activity.source).toBe('MCP_RECORD');
+    expect(activity.summary).toContain('노출 조건');
+    expect(activity.lastCommitSha).toBe('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef');
+    expect(activity.ciFailed).toBe(true);
+    // 브랜치 테스트 실패는 공식 TEST_FAILURE Inbox를 만들지 않는다
+    expect(await prisma.inboxItem.count({ where: { projectId, type: 'TEST_FAILURE' } })).toBe(0);
+  });
+
+  it('기본 브랜치(main) 작업은 branch를 지정해도 기존처럼 공식 상태를 갱신한다', async () => {
+    const { projectId } = await createUserAndProject(prisma);
+    await prisma.repository.create({
+      data: { projectId, owner: 'demo', name: 'app', fullName: 'demo/app', defaultBranch: 'main' },
+    });
+    const feature = await activeFeature(projectId, '로그인', {
+      implementationStatus: 'IMPLEMENTED',
+      verificationStatus: 'PASSED',
+    });
+    const result = await recordWorkUpdate(prisma, {
+      input: {
+        projectId,
+        featureIds: [feature.id],
+        summary: 'main에서 직접 수정',
+        changedFiles: ['src/auth/login.ts'],
+        branch: 'main',
+      },
+    });
+    expect(result.branchOnly).toBe(false);
+    const after = await prisma.featureNode.findUniqueOrThrow({ where: { id: feature.id } });
+    expect(after.implementationStatus).toBe('CHANGED');
+    expect(after.verificationStatus).toBe('NEEDS_VERIFICATION');
+    expect(after.lastStatusSource).toBe('MCP_RECORD');
+    expect(await prisma.featureBranchActivity.count({ where: { projectId } })).toBe(0);
+  });
+
   it('승인 전 초안(DRAFT) 기능에도 소급 기록이 연결된다 — bootstrap 직후 히스토리 백필', async () => {
     const { projectId } = await createUserAndProject(prisma);
     const draft = await prisma.featureNode.create({
