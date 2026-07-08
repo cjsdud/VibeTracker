@@ -86,6 +86,18 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
                   : '아직 연결 기록 없음'}
               </span>
             </div>
+            <CopyBlock
+              label="웹 클로드 코드(claude.ai)에서 쓰는 경우 — 이 프롬프트 하나면 끝"
+              text={setupData.webSetupPrompt}
+            />
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
+              위 프롬프트를 웹 클로드 코드 세션에 붙여넣으면 Claude가 연결 파일 생성, 복귀
+              브리핑 훅 설치, 커밋·푸시까지 알아서 합니다. 완료 후 <strong>새 세션</strong>을
+              열고 &quot;기능 지도를 만들어서 등록해줘&quot;라고 말하세요. (환경 설정에서
+              네트워크 액세스가 이 서버 주소에 허용되어 있어야 합니다. 토큰이 저장소에
+              커밋되므로 비공개 저장소에서 사용하세요.)
+            </p>
+            <p style={{ fontWeight: 700, marginBottom: 4 }}>터미널(CLI)에서 쓰는 경우:</p>
             <CopyBlock label="1) Claude Code에 MCP 추가" text={setupData.addCommandExample} />
             <CopyBlock label="2) 또는 .mcp.json에 추가" text={setupData.mcpJsonExample} />
             <CopyBlock label="3) CLAUDE.md에 추가할 작업 규칙" text={setupData.claudeMdExample} />

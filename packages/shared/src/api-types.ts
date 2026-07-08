@@ -222,6 +222,8 @@ export interface ClaudeSetupDto {
   addCommandExample: string;
   /** SessionStart 훅 설치 명령 (프로젝트 루트에서 1회 실행) */
   hookInstallCommand: string;
+  /** 웹 클로드 코드용 원샷 설정 프롬프트 — 세션에 붙여넣으면 파일 생성·훅 설치·커밋까지 수행 */
+  webSetupPrompt: string;
 }
 
 // ---------- 복귀 브리핑 ----------

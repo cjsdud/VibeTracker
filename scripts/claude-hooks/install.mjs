@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* global process, URL, fetch, console */
+import { execFileSync } from 'node:child_process';
 /**
  * VibeTrack SessionStart 훅 설치 — 프로젝트 루트에서 한 번 실행하면 끝.
  *
@@ -31,15 +32,31 @@ try {
   fail(`.mcp.json을 읽을 수 없습니다: ${error.message}`);
 }
 
-// 2) 훅 스크립트 내려받기
+// 2) 훅 스크립트 내려받기 — fetch 실패 시 curl 폴백 (프록시 경유 환경 대응)
+async function download(url) {
+  try {
+    const res = await fetch(url);
+    if (res.ok) return await res.text();
+  } catch {
+    // curl로 재시도
+  }
+  try {
+    return execFileSync('curl', ['-fsS', '--max-time', '15', url], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return null;
+  }
+}
 const hookDir = join(root, '.claude', 'hooks');
 mkdirSync(hookDir, { recursive: true });
-const res = await fetch(`${origin}/hook/vibetrack-briefing.mjs`).catch(() => null);
-if (!res || !res.ok) {
+const hookSource = await download(`${origin}/hook/vibetrack-briefing.mjs`);
+if (!hookSource) {
   fail(`훅 스크립트를 내려받지 못했습니다: ${origin}/hook/vibetrack-briefing.mjs`);
 }
 const hookPath = join(hookDir, 'vibetrack-briefing.mjs');
-writeFileSync(hookPath, await res.text());
+writeFileSync(hookPath, hookSource);
 
 // 3) .claude/settings.json에 SessionStart 훅 병합 등록
 const settingsPath = join(root, '.claude', 'settings.json');

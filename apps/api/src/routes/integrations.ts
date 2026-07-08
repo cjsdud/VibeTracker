@@ -39,22 +39,58 @@ function toTokenDto(token: {
   };
 }
 
-function buildClaudeMd(): string {
+function buildClaudeMd(projectId: string): string {
   return `## VibeTrack 작업 규칙
 
 이 프로젝트는 VibeTrack MCP로 상태를 추적한다. 반드시 지켜라.
+이 프로젝트의 VibeTrack projectId: \`${projectId}\` (모든 vibetrack 도구 호출에 사용)
 
-1. 작업을 시작하면 먼저 \`get_project_context\`로 현재 프로젝트 맥락(기능 트리, 최근 작업,
-   검증 필요 기능, 다음 우선 작업)을 조회한다.
+1. 작업을 시작하면 먼저 \`get_project_context\`로 복귀 브리핑(경과 시간, 지난 작업,
+   검증 필요 기능, 최근 코드 변경, 문제 있음)을 조회한다.
+   (SessionStart 훅이 이미 브리핑을 주입했다면 다시 호출하지 않아도 된다)
 2. 특정 기능을 건드릴 때는 \`get_feature_context\`로 그 기능의 파일/테스트/미해결 질문을 읽는다.
 3. 작업을 마치기 전에 반드시 \`record_work_update\`를 호출한다.
-   - 관련 featureIds, 작업 요약, 변경 파일 목록, 현재 git HEAD SHA를 넣는다.
+   - 관련 featureIds, 작업 요약, 변경 파일 목록, 작업 커밋 SHA(commitShas)를 넣는다.
+   - 기본 브랜치(main)가 아닌 브랜치에서 작업했다면 branch를 넣는다.
    - 테스트를 돌렸다면 그 결과(passed/failed)를 반드시 기록한다.
    - 해결 못한 문제는 openQuestions에 반드시 기록한다.
 4. 새 기능 추가, 기능 삭제(종료), 병합, 분리, 이동, 이름 변경이 필요하면
    \`propose_structure_change\`를 호출한다. 기능 트리를 직접 임의로 수정하지 않는다.
    제안은 사용자가 VibeTrack Inbox에서 승인해야 반영된다.
-5. 무엇을 할지 모르겠으면 \`get_next_task\`로 현재 우선 작업 1개를 받아 수행한다.`;
+5. 기능 지도가 아직 없거나 사용자가 지도 등록/재등록을 요청하면
+   \`bootstrap_project_map\`을 사용한다 (도구 설명의 이름 규칙을 지켜라:
+   비개발자가 읽고 이해하는 사용자 행동 중심 이름, 기능마다 한 줄 설명).
+6. vibetrack MCP 서버가 연결되어 있지 않으면 위 규칙은 건너뛰고 평소처럼 작업한다.`;
+}
+
+/**
+ * 웹 클로드 코드(claude.ai) 사용자용 원샷 설정 프롬프트.
+ * 웹 세션은 매번 저장소를 새로 받아오므로 모든 연결 설정이 저장소에 커밋되어야 한다.
+ * 이 프롬프트 하나를 붙여넣으면 세션의 Claude가 파일 생성·훅 설치·커밋까지 수행한다.
+ */
+function buildWebSetupPrompt(params: {
+  mcpJson: string;
+  claudeMd: string;
+  baseUrl: string;
+}): string {
+  return `이 저장소를 VibeTrack에 연결하는 1회성 설정 작업이다. 아래를 순서대로 수행해라.
+
+1. 저장소 루트에 .mcp.json 파일을 만들어라.
+   이미 있으면 mcpServers에 vibetrack 항목만 추가/갱신해라:
+${params.mcpJson}
+
+2. CLAUDE.md 파일 끝에 아래 내용을 추가해라 (VibeTrack 작업 규칙 섹션이 이미 있으면 교체해라):
+${params.claudeMd}
+
+3. 복귀 브리핑 훅을 설치해라 (매 세션 시작 시 프로젝트 상태 요약이 자동 주입된다):
+   curl -fsSL ${params.baseUrl}/hook/install.mjs -o /tmp/vibetrack-install.mjs && node /tmp/vibetrack-install.mjs
+
+4. 변경된 파일(.mcp.json, CLAUDE.md, .claude/ 아래 파일들)을 전부 커밋하고 푸시해라.
+
+5. 다 끝나면 나에게 이렇게 알려라:
+   "VibeTrack 연결 설정이 저장소에 커밋되었습니다. 새 세션을 열고
+   '기능 지도를 만들어서 등록해줘'라고 말하면 저장소를 분석해 기능 지도를 등록합니다.
+   등록된 지도는 VibeTrack 웹(${params.baseUrl})에서 승인해야 반영됩니다."`;
 }
 
 function buildHistoryImportPrompt(projectId: string): string {
@@ -194,29 +230,36 @@ export async function integrationRoutes(
     const hasDemoToken = env.DEMO_MODE && tokens.some((t) => t.name === 'demo');
     const tokenPlaceholder = hasDemoToken ? DEMO_MCP_TOKEN : 'vtk_발급받은_토큰';
 
+    const mcpJsonExample = JSON.stringify(
+      {
+        mcpServers: {
+          vibetrack: {
+            type: 'http',
+            url: mcpUrl,
+            headers: { Authorization: `Bearer ${tokenPlaceholder}` },
+          },
+        },
+      },
+      null,
+      2,
+    );
+    const claudeMdExample = buildClaudeMd(projectId);
     const setup: ClaudeSetupDto = {
       mcpUrl,
       projectId,
       hasActiveToken: tokens.length > 0,
       lastMcpActivityAt: lastUsed?.toISOString() ?? null,
       addCommandExample: `claude mcp add --transport http vibetrack ${mcpUrl} --header "Authorization: Bearer ${tokenPlaceholder}"`,
-      mcpJsonExample: JSON.stringify(
-        {
-          mcpServers: {
-            vibetrack: {
-              type: 'http',
-              url: mcpUrl,
-              headers: { Authorization: `Bearer ${tokenPlaceholder}` },
-            },
-          },
-        },
-        null,
-        2,
-      ),
-      claudeMdExample: buildClaudeMd(),
+      mcpJsonExample,
+      claudeMdExample,
       bootstrapPrompt: buildBootstrapPrompt(projectId),
       historyImportPrompt: buildHistoryImportPrompt(projectId),
       hookInstallCommand: `curl -fsSL ${baseUrl}/hook/install.mjs -o /tmp/vibetrack-install.mjs && node /tmp/vibetrack-install.mjs`,
+      webSetupPrompt: buildWebSetupPrompt({
+        mcpJson: mcpJsonExample,
+        claudeMd: claudeMdExample,
+        baseUrl,
+      }),
     };
     return { setup };
   });
