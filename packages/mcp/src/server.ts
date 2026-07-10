@@ -132,8 +132,8 @@ export function buildMcpServer(ctx: McpServerContext): McpServer {
           draftCount: result.draftCount,
           replacesActiveMap: result.replacesActiveMap,
           message: result.replacesActiveMap
-            ? '기능 지도 교체 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 승인하면 기존 지도는 종료되고 이 초안이 새 지도가 됩니다. 사용자에게 승인을 요청하세요.'
-            : '기능 지도 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 검토·승인해야 활성화됩니다. 사용자에게 승인을 요청하세요.',
+            ? '기능 지도 교체 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 승인하면 기존 지도는 종료되고 이 초안이 새 지도가 됩니다. 아직 사용자에게 승인을 요청하지 마세요 — qualityWarnings 수정과 히스토리 연결(record_work_update + occurredAt)까지 전부 마친 뒤, 마지막에 "등록을 마쳤으니 VibeTrack 웹에서 승인해 주세요"라고 한 번만 알리세요.'
+            : '기능 지도 초안이 등록되었습니다. 사용자가 VibeTrack 웹에서 검토·승인해야 활성화됩니다. 아직 사용자에게 승인을 요청하지 마세요 — qualityWarnings 수정과 히스토리 연결(record_work_update + occurredAt)까지 전부 마친 뒤, 마지막에 "등록을 마쳤으니 VibeTrack 웹에서 승인해 주세요"라고 한 번만 알리세요.',
           ...(result.qualityWarnings.length > 0
             ? {
                 qualityWarnings: result.qualityWarnings.slice(0, 20).map((w) => w.message),

@@ -5,7 +5,7 @@ import {
   type FeatureNodeDto,
   type ProjectDto,
 } from '@vibetrack/shared';
-import { useApproveFeatureMap, useFeatureDetail, useFeatureTree } from '../api/hooks.js';
+import { useApproveFeatureMap, useFeatureDetail, useFeatureTree, useInbox } from '../api/hooks.js';
 import { AxisBadges, StatusBadge } from '../components/StatusBadge.js';
 import { StatusLegend, SubtreeRollup } from '../components/StatusSummary.js';
 
@@ -249,12 +249,23 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
   const navigate = useNavigate();
   const tree = useFeatureTree(project.id);
   const approve = useApproveFeatureMap(project.id);
+  const inbox = useInbox(project.id);
 
   const nodes = tree.data?.tree ?? [];
   const hasLifecycle = (list: FeatureNodeDto[], lifecycle: string): boolean =>
     list.some((n) => n.lifecycle === lifecycle || hasLifecycle(n.children, lifecycle));
   const draftMode = hasLifecycle(nodes, 'DRAFT');
   const replaceMode = draftMode && hasLifecycle(nodes, 'ACTIVE');
+
+  // 검토 항목의 등록 시각·기능 수·품질 경고 — "Claude가 아직 작업 중일 수 있다"를 보여주기 위한 정보
+  const reviewItem = inbox.data?.items.find((i) => i.type === 'FEATURE_MAP_REVIEW');
+  const reviewDetail = (reviewItem?.detail ?? {}) as {
+    draftCount?: number;
+    qualityWarningCount?: number;
+  };
+  const registeredMinutesAgo = reviewItem
+    ? Math.floor((Date.now() - new Date(reviewItem.createdAt).getTime()) / 60_000)
+    : null;
 
   return (
     <>
@@ -272,6 +283,27 @@ export function FeatureMapPage({ project }: { project: ProjectDto }) {
               ? 'Claude Code가 새 기능 지도 초안을 등록했습니다. 승인하면 기존 지도 전체가 종료 처리되고(기록은 보존) 이 초안이 새 지도가 됩니다.'
               : 'Claude Code가 만든 기능 지도 초안입니다. 승인하면 활성화되고 이후 작업이 자동으로 추적됩니다. 마음에 들지 않으면 Claude Code에서 bootstrap을 다시 실행해 초안을 교체할 수 있습니다.'}
           </p>
+          {reviewItem && (
+            <div className="chip-list" style={{ marginBottom: 10 }}>
+              <span className="chip">기능 {reviewDetail.draftCount ?? '?'}개</span>
+              <span className="chip">
+                {registeredMinutesAgo === 0
+                  ? '방금 전 등록'
+                  : registeredMinutesAgo !== null && registeredMinutesAgo < 60
+                    ? `${registeredMinutesAgo}분 전 등록`
+                    : `${new Date(reviewItem.createdAt).toLocaleString('ko-KR')} 등록`}
+              </span>
+              {(reviewDetail.qualityWarningCount ?? 0) > 0 && (
+                <span className="chip">품질 참고 {reviewDetail.qualityWarningCount}건</span>
+              )}
+            </div>
+          )}
+          <div className="alert info" style={{ fontSize: 13.5, marginBottom: 10 }}>
+            승인 버튼이 떠 있어도 Claude Code가 아직 작업 중일 수 있습니다 — 품질 지적을 고쳐
+            초안을 다시 등록하거나(이 초안이 교체됩니다) 기능마다 지난 히스토리를 연결하는
+            중일 수 있어요. Claude Code가 <strong>&quot;등록을 마쳤으니 승인해 주세요&quot;</strong>
+            라고 알린 뒤에 승인하는 것을 권장합니다.
+          </div>
           <button
             className="btn primary"
             disabled={approve.isPending}
