@@ -87,6 +87,11 @@ export function StatusLegend() {
             <b>{displayStatusLabelKo[key]}</b> — {displayStatusDescriptionKo[key]}
           </li>
         ))}
+        <li style={{ color: 'var(--text-muted)' }}>
+          &quot;검증 필요&quot;는 승인 대상이 아닙니다 — 기능을 눌러 직접 확인 처리하거나 Claude
+          Code에 검증을 시키면 완성으로 바뀝니다. 승인 버튼은 지도 초안과 구조 변경 제안에만
+          있습니다.
+        </li>
       </ul>
     </details>
   );

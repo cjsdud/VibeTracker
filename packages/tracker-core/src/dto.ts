@@ -37,6 +37,8 @@ export function toFeatureNodeDto(
     verificationStatus: node.verificationStatus,
     displayStatus: deriveDisplayStatus(node),
     lastChangedAt: node.lastChangedAt?.toISOString() ?? null,
+    lastStatusSource: node.lastStatusSource,
+    createdAt: node.createdAt.toISOString(),
     children,
   };
 }
@@ -70,6 +72,7 @@ export function toEvidenceDto(evidence: FeatureEvidence): FeatureEvidenceDto {
     url: evidence.url,
     missing: evidence.missing,
     createdAt: evidence.createdAt.toISOString(),
+    workUpdateId: evidence.workUpdateId,
   };
 }
 

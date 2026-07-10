@@ -197,6 +197,28 @@ export function useCreateProject() {
   });
 }
 
+/** 기능 상태 수동 갱신 — "직접 확인했어요" 버튼 등 (사용자 본인이 곧 승인자) */
+export function useUpdateFeature(projectId: string) {
+  const invalidate = useInvalidateProject();
+  return useMutation({
+    mutationFn: (params: {
+      featureId: string;
+      verificationStatus?: 'MANUAL_VERIFIED' | 'NEEDS_VERIFICATION';
+      implementationStatus?: 'PARTIAL' | 'IMPLEMENTED';
+    }) =>
+      api(`/api/projects/${projectId}/features/${params.featureId}`, {
+        method: 'PATCH',
+        body: {
+          ...(params.verificationStatus ? { verificationStatus: params.verificationStatus } : {}),
+          ...(params.implementationStatus
+            ? { implementationStatus: params.implementationStatus }
+            : {}),
+        },
+      }),
+    onSuccess: () => invalidate(projectId),
+  });
+}
+
 export function useApproveFeatureMap(projectId: string) {
   const invalidate = useInvalidateProject();
   return useMutation({

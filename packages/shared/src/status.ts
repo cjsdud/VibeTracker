@@ -60,12 +60,12 @@ export const displayStatusDescriptionKo: Record<DisplayStatus, string> = {
 
 /** 이 상태에서 사용자가 다음에 하면 좋은 행동 */
 export const displayStatusActionKo: Partial<Record<DisplayStatus, string>> = {
-  BROKEN: '실패한 테스트부터 고치세요. Claude Code에서 get_next_task가 이 기능을 최우선으로 안내합니다.',
+  BROKEN: '실패한 테스트부터 고치세요. 아래 검증 요청 프롬프트를 Claude Code에 붙여넣으면 됩니다.',
   NEEDS_VERIFICATION:
-    'Claude Code에 "이 기능 테스트해줘" 또는 직접 실행해 확인한 뒤 기록을 남기면 완성으로 바뀝니다.',
+    'Claude Code에 검증을 시키거나(아래 프롬프트 복사), 직접 실행해 확인했다면 "직접 확인했어요" 버튼을 누르세요. 승인 버튼과는 다릅니다 — 승인은 지도 초안과 구조 변경 제안에만 있습니다.',
   IN_PROGRESS: '이어서 구현을 진행하세요.',
   PLANNED: '구현을 시작할 차례입니다.',
-  AWAITING_APPROVAL: '기능 지도 화면에서 초안을 검토하고 승인하세요.',
+  AWAITING_APPROVAL: '기능 지도 화면 위쪽의 승인 버튼으로 초안 전체를 승인하면 활성화됩니다.',
 };
 
 export const lifecycleLabelKo: Record<Lifecycle, string> = {

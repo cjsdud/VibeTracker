@@ -84,6 +84,10 @@ export interface FeatureNodeDto {
   verificationStatus: VerificationStatus;
   displayStatus: DisplayStatus;
   lastChangedAt: string | null;
+  /** 마지막 공식 상태 변경의 출처 (github_webhook / mcp_record / user_manual) */
+  lastStatusSource: ChangeSource | null;
+  /** 지도에 등록된 시각 — 히스토리 타임라인의 시작점 */
+  createdAt: string;
   children: FeatureNodeDto[];
 }
 
@@ -96,6 +100,8 @@ export interface FeatureEvidenceDto {
   url: string | null;
   createdAt: string;
   missing: boolean;
+  /** 작업 기록에서 생성된 증거면 그 기록의 ID — 타임라인에서 작업 기록과 중복 표시하지 않기 위해 */
+  workUpdateId: string | null;
 }
 
 export interface WorkUpdateDto {
