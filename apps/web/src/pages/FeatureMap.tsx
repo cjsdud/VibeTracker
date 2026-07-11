@@ -283,7 +283,18 @@ function VerifyActions({ project, feature }: { project: ProjectDto; feature: Fea
     node.displayStatus === 'IMPLEMENTED';
   if (!relevant) return null;
 
-  const verifyPrompt = `VibeTrack 기능 "${node.name}"(featureId: ${node.id})을 검증해줘. 테스트를 실행하거나 실제 동작을 확인한 뒤, record_work_update에 featureIds=["${node.id}"]와 tests 또는 manualCheck 결과를 기록해줘.`;
+  const verifyPrompt = `VibeTrack 기능 "${node.name}"(featureId: ${node.id})을 검증해줘.
+
+절차:
+1. get_feature_context로 이 기능의 연결 파일·테스트·최근 작업을 먼저 확인해라.
+2. 연결된 테스트가 있으면 실행해라. 없으면 앱을 실제로 실행해서 이 기능의 동작을
+   직접 확인해라. 타입체크나 빌드 성공만으로는 검증이 아니다.
+3. 결과를 있는 그대로 record_work_update에 기록해라:
+   - featureIds: ["${node.id}"]
+   - 통과: tests(status PASSED) 또는 manualCheck: true
+   - 실패: tests(status FAILED, summary에 무엇이 어떻게 실패했는지), 원인을 모르면 openQuestions에 남겨라
+4. 동작을 직접 관찰하지 못했다면 절대 통과로 기록하지 마라 — 확인 못 한 이유를 보고해라.
+5. 실패를 발견해도 바로 고치지 말고 먼저 나에게 보고해라.`;
   const copyPrompt = () => {
     void navigator.clipboard.writeText(verifyPrompt).then(() => {
       setCopied(true);

@@ -93,6 +93,32 @@ ${params.claudeMd}
    등록된 지도는 VibeTrack 웹(${params.baseUrl})에서 승인해야 반영됩니다."`;
 }
 
+/**
+ * 검증 세션 프롬프트: "검증 필요"가 쌓였을 때 한 번에 정리하는 세션.
+ * 원칙: 동작을 직접 관찰한 것만 통과로 기록한다. 검증과 수리는 분리한다.
+ */
+function buildVerificationPrompt(projectId: string): string {
+  return `VibeTrack 프로젝트 "${projectId}"에서 검증이 필요한 기능들을 검증하는 세션이다.
+
+준비:
+- get_project_context로 "검증 필요" 목록(needsVerification)을 받아라.
+- 핵심(core) 기능부터 처리해라.
+
+기능마다 반복:
+1. get_feature_context로 연결 파일·테스트·최근 작업을 확인해라.
+2. 연결된 테스트가 있으면 실행해라. 없으면 앱을 실제로 실행해 그 기능의 동작을
+   직접 확인해라. 타입체크나 빌드 성공만으로는 검증이 아니다.
+3. 결과를 있는 그대로 record_work_update에 기록해라 (featureIds에 그 기능 ID):
+   - 통과: tests(status PASSED) 또는 manualCheck: true
+   - 실패: tests(status FAILED, summary에 실패 내용), 원인을 모르면 openQuestions에 남겨라
+4. 동작을 직접 관찰하지 못한 기능은 통과로 기록하지 말고 이유를 보고해라.
+
+규칙:
+- 검증과 수리는 분리한다: 실패를 발견해도 이 세션에서 고치지 말고 목록으로 보고해라.
+  무엇을 고칠지는 내가 정한다.
+- 끝나면 요약해라: 검증한 기능 수, 통과/실패 개수, 확인하지 못한 기능과 이유.`;
+}
+
 function buildHistoryImportPrompt(projectId: string): string {
   return `지난 Claude Code 세션 기록을 VibeTrack 프로젝트 "${projectId}"에 소급 등록해라.
 
@@ -256,6 +282,7 @@ export async function integrationRoutes(
       claudeMdExample,
       bootstrapPrompt: buildBootstrapPrompt(projectId),
       historyImportPrompt: buildHistoryImportPrompt(projectId),
+      verificationPrompt: buildVerificationPrompt(projectId),
       hookInstallCommand: `curl -fsSL ${baseUrl}/hook/install.mjs -o /tmp/vibetrack-install.mjs && node /tmp/vibetrack-install.mjs`,
       webSetupPrompt: buildWebSetupPrompt({
         mcpJson: mcpJsonExample,

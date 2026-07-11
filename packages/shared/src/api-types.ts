@@ -225,6 +225,8 @@ export interface ClaudeSetupDto {
   claudeMdExample: string;
   bootstrapPrompt: string;
   historyImportPrompt: string;
+  /** 검증 세션 프롬프트 — "검증 필요"가 쌓였을 때 한 번에 검증 (수리는 분리) */
+  verificationPrompt: string;
   addCommandExample: string;
   /** SessionStart 훅 설치 명령 (프로젝트 루트에서 1회 실행) */
   hookInstallCommand: string;

@@ -114,11 +114,21 @@ export function SettingsPage({ project }: { project: ProjectDto }) {
               질문을 소급 복원합니다. 현재 기능 상태는 바꾸지 않습니다.
             </p>
             <CopyBlock
-              label="6) 복귀 브리핑 자동 주입 설치 (권장, 프로젝트 루트에서 한 번 실행)"
+              label="6) 검증 세션 프롬프트 (검증 필요가 쌓였을 때, 언제든 반복 실행)"
+              text={setupData.verificationPrompt}
+            />
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
+              6번을 붙여넣으면 Claude Code가 &quot;검증 필요&quot; 기능들을 하나씩 실제로
+              실행해 보고 통과/실패를 정직하게 기록합니다. 검증만 하고 수리는 하지 않으므로
+              안심하고 돌릴 수 있습니다. 기능 하나만 검증하려면 기능 지도에서 그 기능을 누르고
+              &quot;검증 요청 프롬프트 복사&quot;를 쓰세요.
+            </p>
+            <CopyBlock
+              label="7) 복귀 브리핑 자동 주입 설치 (권장, 프로젝트 루트에서 한 번 실행)"
               text={setupData.hookInstallCommand}
             />
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
-              6번을 실행하면 Claude Code의 SessionStart 훅이 등록되어, 매 세션 시작 시 복귀
+              7번을 실행하면 Claude Code의 SessionStart 훅이 등록되어, 매 세션 시작 시 복귀
               브리핑(경과 시간·지난 작업·검증 필요·최근 코드 변경·문제 있음)이 자동으로
               주입됩니다. 훅이 실패해도 세션은 정상 진행됩니다(조용히 스킵).
             </p>
